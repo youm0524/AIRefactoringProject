@@ -1,0 +1,43 @@
+#!/bin/sh
+set -eu
+
+# shortcut: 공식 wrapper JAR 대신 체크섬 검증 배포본을 사용, 팀 표준 wrapper가 필요하면 `./gradlew wrapper`로 교체한다.
+GRADLE_VERSION=8.14.6
+GRADLE_SHA256=7988ed071b2a07900e2ec715fca15c6ab72bce6db433af301fa7fa7e9407bd24
+SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+CACHE_DIR="$SCRIPT_DIR/.gradle-bootstrap"
+GRADLE_DIR="$CACHE_DIR/gradle-$GRADLE_VERSION"
+ZIP_FILE="$CACHE_DIR/gradle-$GRADLE_VERSION-bin.zip"
+: "${GRADLE_USER_HOME:=$SCRIPT_DIR/.gradle}"
+export GRADLE_USER_HOME
+
+if [ ! -x "$GRADLE_DIR/bin/gradle" ]; then
+  command -v curl >/dev/null 2>&1 || { echo "curl이 필요합니다." >&2; exit 1; }
+  command -v unzip >/dev/null 2>&1 || { echo "unzip이 필요합니다." >&2; exit 1; }
+  mkdir -p "$CACHE_DIR"
+
+  if [ ! -f "$ZIP_FILE" ]; then
+    echo "Gradle $GRADLE_VERSION 다운로드 중..."
+    curl --fail --location --retry 3 --output "$ZIP_FILE.tmp" \
+      "https://services.gradle.org/distributions/gradle-$GRADLE_VERSION-bin.zip"
+    mv "$ZIP_FILE.tmp" "$ZIP_FILE"
+  fi
+
+  if command -v shasum >/dev/null 2>&1; then
+    ACTUAL_SHA256=$(shasum -a 256 "$ZIP_FILE" | awk '{print $1}')
+  elif command -v sha256sum >/dev/null 2>&1; then
+    ACTUAL_SHA256=$(sha256sum "$ZIP_FILE" | awk '{print $1}')
+  else
+    echo "SHA-256 검증 도구가 필요합니다." >&2
+    exit 1
+  fi
+
+  if [ "$ACTUAL_SHA256" != "$GRADLE_SHA256" ]; then
+    echo "Gradle 파일 체크섬이 일치하지 않습니다. $ZIP_FILE 을 삭제하고 다시 실행하세요." >&2
+    exit 1
+  fi
+
+  unzip -oq "$ZIP_FILE" -d "$CACHE_DIR"
+fi
+
+exec "$GRADLE_DIR/bin/gradle" -p "$SCRIPT_DIR" "$@"
