@@ -3,6 +3,7 @@ package com.careerpick.controller;
 import com.careerpick.dto.ChatMessage;
 import com.careerpick.dto.SendMessageRequest;
 import com.careerpick.service.ChatService;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
@@ -21,6 +22,7 @@ public class ChatController {
     }
 
     @PostMapping
+    @SecurityRequirement(name = "bearerAuth")
     public List<ChatMessage> send(@PathVariable long jobId, @RequestHeader(name="Authorization", required=false) String authorization,
                                   @Valid @RequestBody SendMessageRequest request) {
         return chatService.send(jobId, authorization, request.text());

@@ -15,6 +15,7 @@
 | Framework | Spring Boot | 3.5.7 |
 | Build | Gradle | 8.14.6 |
 | API | Spring MVC, Bean Validation | REST/JSON |
+| API docs | springdoc-openapi, Swagger UI | OpenAPI 3, springdoc 2.8.17 |
 | Persistence | Spring Data JPA, Hibernate | 엔티티 매핑과 Repository |
 | Database | MySQL | 8.4 |
 | Session store | Redis | 7 |
@@ -45,7 +46,8 @@ com.careerpick
 ├── CareerpickApplication.java
 ├── config
 │   ├── AppConfig.java
-│   └── DataInitializer.java
+│   ├── DataInitializer.java
+│   └── OpenApiConfig.java
 ├── controller
 │   ├── AuthController.java
 │   ├── ChatController.java
@@ -126,6 +128,14 @@ cd backend
 ```
 
 기본 로컬 포트는 API `8080`, MySQL `3307`, Redis `6379`이다. MySQL 컨테이너 내부 포트는 `3306`이며 로컬 MySQL과 충돌하지 않도록 호스트에 `3307`로 노출한다. 운영 환경에서는 `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`, `REDIS_HOST`, `REDIS_PORT`, `REDIS_PASSWORD`를 설정한다.
+
+OpenAPI 명세와 Swagger UI는 백엔드 실행 후 다음 주소에서 확인한다.
+
+- Swagger UI: `http://localhost:8080/swagger-ui.html`
+- OpenAPI JSON: `http://localhost:8080/v3/api-docs`
+- OpenAPI YAML: `http://localhost:8080/v3/api-docs.yaml`
+
+Swagger UI의 `Authorize`에는 로그인 응답의 token 값만 입력한다. 배포 환경에서 문서를 공개하지 않으려면 `OPENAPI_ENABLED=false`를 설정한다.
 
 테스트는 다음 명령으로 실행한다.
 
