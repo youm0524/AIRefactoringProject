@@ -21,7 +21,7 @@ npm run dev
 
 - 프론트엔드: http://localhost:5173
 - 백엔드 API: http://localhost:8080/api/jobs
-- MySQL: localhost:3306 (`careerpick` / `careerpick`)
+- MySQL: localhost:3307 (`careerpick` / `careerpick`)
 - Redis: localhost:6379
 
 데모 로그인 계정은 `demo@careerpick.kr` / `career1234`입니다. 공고별 커뮤니티 메시지 작성은 로그인이 필요합니다.

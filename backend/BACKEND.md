@@ -125,7 +125,7 @@ cd backend
 ./gradlew bootRun
 ```
 
-기본 로컬 포트는 API `8080`, MySQL `3306`, Redis `6379`이다. 운영 환경에서는 `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`, `REDIS_HOST`, `REDIS_PORT`, `REDIS_PASSWORD`를 설정한다.
+기본 로컬 포트는 API `8080`, MySQL `3307`, Redis `6379`이다. MySQL 컨테이너 내부 포트는 `3306`이며 로컬 MySQL과 충돌하지 않도록 호스트에 `3307`로 노출한다. 운영 환경에서는 `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`, `REDIS_HOST`, `REDIS_PORT`, `REDIS_PASSWORD`를 설정한다.
 
 테스트는 다음 명령으로 실행한다.
 

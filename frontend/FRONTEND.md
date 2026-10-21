@@ -18,7 +18,7 @@
 | Styling | CSS | 단일 `App.css` |
 | HTTP | Browser Fetch API | 별도 HTTP 라이브러리 없음 |
 | State | React `useState`, `useEffect` | 별도 전역 상태 라이브러리 없음 |
-| Browser storage | `localStorage` | 토큰, 관심 공고, 자기소개서 초안 |
+| Browser storage | `localStorage` | 토큰, 자기소개서 초안 |
 | Test | Node.js `node:test` | `node:assert` 사용 |
 | Dev server | Node.js HTTP server | `localhost:5173` |
 
@@ -32,7 +32,7 @@
 - 로그인 입력과 로그인 상태 표시
 - 공고별 지원자 채팅 UI
 - 자기소개서 작성과 브라우저 임시 저장
-- 관심 공고와 화면 상태 관리
+- 화면 전환과 모달 상태 관리
 - 반응형 레이아웃, 키보드 조작과 접근성 속성
 - API 연결 실패 시 MVP 데모 데이터 표시
 
@@ -91,7 +91,7 @@ frontend/
 
 - 서버 데이터: 채용공고, 사용자 정보와 공고별 채팅
 - React 상태: 현재 화면, 검색어, 분야, 모달, 선택 공고와 알림
-- `localStorage`: 로그인 토큰, 관심 공고 ID, 공고별 자기소개서 초안
+- `localStorage`: 로그인 토큰, 공고별 자기소개서 초안
 - 데모 데이터: 백엔드 연결 실패 시 공고 목록과 채팅의 제한된 대체 화면
 
 브라우저 저장 데이터는 편의 기능일 뿐 신뢰 가능한 서버 데이터로 취급하지 않는다. 로그아웃 시 로그인 토큰과 사용자 상태를 함께 제거한다.
