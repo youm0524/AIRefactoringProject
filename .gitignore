@@ -1,5 +1,41 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+.settings/
+.classpath
+.project
+*.iml
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+backend/src/main/resources/application-local.properties
+backend/src/main/resources/application-local.yml
+backend/src/main/resources/application-local.yaml
+
+# Local Docker overrides
+compose.override.yml
+compose.override.yaml
+docker-compose.override.yml
+docker-compose.override.yaml
+
+# Frontend
 frontend/node_modules/
 frontend/dist/
+frontend/coverage/
+frontend/.eslintcache
+
+# Backend
 backend/.gradle/
 backend/.gradle-bootstrap/
 backend/build/
+backend/out/
+
+# Root build output and logs
+/dist/
+*.log
