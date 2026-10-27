@@ -15,3 +15,99 @@ footer{padding:45px max(28px,calc((100% - 1160px)/2));background:#f7f8f7;display
 @media(max-width:620px){.brand small{display:none}.hero-copy{font-size:13px}.modal-backdrop{padding:0;align-items:end}.job-modal{max-height:94vh;border-radius:20px 20px 0 0}.modal-body{padding:24px 20px}.modal-body>h2{font-size:23px}.job-modal footer.modal-actions{display:flex;padding:13px 16px}.modal-save{width:115px}}
 .brand-button{border:0;background:transparent;padding:0}.topbar nav button{border:0;background:transparent;font-size:14px;font-weight:600;height:100%;position:relative;padding:0;cursor:pointer}.topbar nav button.active:after{content:'';height:3px;background:var(--green);position:absolute;left:0;right:0;bottom:0;border-radius:3px}.community-button{border:1px solid var(--green);background:var(--mint);color:var(--green-deep);padding:0 18px}.job-modal footer.modal-actions{grid-column:auto}.login-modal{width:min(430px,100%);background:#fff;border-radius:22px;padding:38px;position:relative;box-shadow:0 30px 100px rgba(0,0,0,.28)}.login-modal>.modal-close{position:absolute;right:18px;top:12px}.login-modal h2{font-size:27px;margin:8px 0}.login-modal>p{color:var(--muted);font-size:13px;line-height:1.7}.login-modal form{display:flex;flex-direction:column;gap:14px;margin:25px 0 15px}.login-modal label{font-size:12px;font-weight:700}.login-modal input{display:block;width:100%;border:1px solid var(--line);border-radius:10px;padding:12px;margin-top:7px;outline:0}.login-modal input:focus{border-color:var(--green)}.login-modal form .apply-button{width:100%;height:48px;border:0;border-radius:10px;font-weight:700}.login-modal>small{color:var(--muted);font-size:10px}.form-error{color:#df4f4f!important;margin:0!important}.cover-page{min-height:calc(100vh - 72px);background:var(--soft);padding:65px max(22px,calc((100% - 920px)/2)) 90px}.cover-head>button{border:0;background:transparent;color:var(--muted);padding:0;margin-bottom:30px}.cover-head h1{font-size:36px;margin:8px 0}.cover-head p{color:var(--muted)}.cover-editor{background:#fff;border:1px solid var(--line);border-radius:20px;padding:30px;margin-top:30px}.cover-progress{display:flex;justify-content:space-between;border-bottom:1px solid var(--line);padding-bottom:18px;margin-bottom:25px}.cover-progress span{font-size:12px;color:var(--muted)}.cover-editor>label{display:grid;grid-template-columns:1fr auto;gap:8px;margin-top:25px;font-size:14px}.cover-editor>label>span{font-size:11px;color:var(--muted)}.cover-editor textarea{grid-column:1/-1;min-height:190px;resize:vertical;border:1px solid var(--line);border-radius:12px;padding:15px;line-height:1.7;outline:0;font:inherit}.cover-editor textarea:focus{border-color:var(--green)}.cover-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:24px}.cover-actions button{height:48px;border-radius:10px;font-weight:700}.cover-actions .apply-button{border:0;padding:0 35px}.cover-actions .modal-save{width:100px}footer button{border:0;background:transparent;color:inherit;cursor:pointer}.chat-panel.open{bottom:25px}.chat-panel .chat-notice{line-height:1.5}.chat-panel header small{max-width:240px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 @media(max-width:620px){.topbar nav{display:flex;gap:18px}.topbar nav button:nth-child(3){display:none}.login-button{padding:9px 11px;font-size:11px}.job-modal footer.modal-actions{flex-wrap:wrap}.job-modal .community-button,.job-modal .apply-button{width:calc(50% - 5px);flex-basis:auto}.login-modal{border-radius:20px 20px 0 0;padding:30px 22px}.cover-page{padding-top:38px}.cover-head h1{font-size:29px}.cover-editor{padding:20px}.cover-editor>label{display:block}.cover-editor>label>span{float:right}.cover-editor textarea{width:100%;margin-top:10px}.chat-panel.open{bottom:0}}
+/* Saved cover letter list */
+.cover-list-page { background: #f7f9f8; padding-top: 64px; }
+.cover-list-heading { display: flex; align-items: center; justify-content: space-between; gap: 24px; }
+.cover-list-page .cover-head h1 { margin: 10px 0 12px; font-size: 32px; letter-spacing: -1.2px; }
+.cover-list-page .cover-head p { margin: 0; font-size: 14px; line-height: 1.7; }
+.cover-new { flex: none; min-height: 44px; padding: 0 20px; border-radius: 10px; background: var(--ink); font-size: 13px; font-weight: 600; cursor: pointer; transition: background .2s; }
+.cover-new:hover { background: #344a3f; }
+.cover-list-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin: 44px 0 18px; padding-bottom: 16px; border-bottom: 1px solid var(--line); }
+.cover-list-count { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 14px; font-weight: 600; }
+.cover-list-count b { display: inline-grid; place-items: center; min-width: 24px; height: 24px; padding: 0 7px; border-radius: 7px; background: #e8efeb; color: var(--green-deep); font-size: 12px; }
+.cover-list-toolbar > span { color: var(--muted); font-size: 12px; }
+.cover-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; }
+.cover-list-item { display: block; width: 100%; text-align: left; background: #fff; border: 1px solid #e2e8e4; border-radius: 14px; padding: 26px 28px; color: var(--ink); font: inherit; cursor: pointer; transition: border-color .2s, box-shadow .2s; }
+.cover-list-item:hover { border-color: #a9c4b5; box-shadow: 0 4px 18px rgba(30,54,43,.05); }
+.cover-list-item:focus-visible, .cover-new:focus-visible { outline: 3px solid var(--green); outline-offset: 3px; }
+.cover-item-top { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.cover-company { color: #59695f; font-size: 12px; font-weight: 600; overflow-wrap: anywhere; }
+.cover-draft-badge { flex: none; border: 1px solid #e5eae7; border-radius: 6px; padding: 4px 8px; color: #758078; font-size: 11px; }
+.cover-list-item h2 { font-size: 19px; font-weight: 600; letter-spacing: -.5px; line-height: 1.5; margin: 12px 0 8px; overflow-wrap: anywhere; }
+.cover-list-preview { color: var(--muted); font-size: 13px; line-height: 1.8; margin: 0; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow-wrap: anywhere; }
+.cover-list-meta { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 22px; padding-top: 16px; border-top: 1px solid #f0f3f1; font-size: 12px; color: var(--muted); }
+.cover-list-meta strong { color: var(--green-deep); font-weight: 600; white-space: nowrap; }
+.cover-empty { padding: 72px 24px; background: #fff; border: 1px dashed #d9e2dc; border-radius: 14px; }
+.cover-empty h2 { margin: 0 0 12px; font-size: 18px; font-weight: 600; letter-spacing: -.5px; }
+.cover-empty p { max-width: 340px; margin: 0 auto; font-size: 13px; line-height: 1.8; }
+@media (max-width: 620px) {
+  .cover-list-page { padding-top: 38px; }
+  .cover-list-heading { align-items: stretch; flex-direction: column; gap: 24px; }
+  .cover-list-page .cover-head h1 { font-size: 28px; }
+  .cover-list-toolbar { margin-top: 32px; }
+  .cover-list-toolbar > span { display: none; }
+  .cover-list-item { padding: 20px; }
+  .cover-list-meta { flex-wrap: wrap; gap: 12px; }
+  .cover-empty { padding: 48px 20px; }
+}
+
+/* Keep editor navigation separate from the title. */
+.cover-head > .cover-back {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: fit-content;
+  min-height: 36px;
+  margin: 0 0 28px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: #53615a;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.4;
+  cursor: pointer;
+  transition: background .2s, border-color .2s;
+}
+.cover-back svg { flex: none; }
+.cover-head > .cover-back:hover { background: #edf3ef; border-color: #bdd0c4; }
+.cover-head > .cover-back:focus-visible { outline: 3px solid var(--green); outline-offset: 3px; }
+@media (max-width: 620px) {
+  .cover-head > .cover-back { margin-bottom: 24px; min-height: 44px; }
+}
+
+/* Company and role are the primary context in the editor. */
+.cover-job-heading {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  margin-top: 18px;
+}
+.cover-job-heading .cover-job-company {
+  flex: 0 0 auto;
+  max-width: 40%;
+  margin: 0;
+  color: var(--green-deep);
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.cover-job-heading h1 {
+  min-width: 0;
+  margin: 0;
+  color: #111;
+  font-size: 36px;
+  font-weight: 700;
+  line-height: 1.4;
+  letter-spacing: -1px;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 620px) {
+  .cover-job-heading { gap: 12px; }
+  .cover-job-heading .cover-job-company { font-size: 19px; }
+  .cover-job-heading h1 { font-size: 28px; letter-spacing: -.7px; }
+}
