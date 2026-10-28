@@ -1,0 +1,9 @@
+{
+  "eslint.workingDirectories": ["./frontend"],
+  "[javascriptreact]": {
+    "editor.formatOnSave": false,
+    "editor.codeActionsOnSave": {
+      "source.fixAll.eslint": "always"
+    }
+  }
+}

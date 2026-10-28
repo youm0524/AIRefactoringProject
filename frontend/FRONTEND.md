@@ -129,6 +129,10 @@ frontend/
 
 ## 8. 실행과 검증
 
+JSX는 ESLint로 자식 태그 줄바꿈과 2칸 들여쓰기를 검사한다. 텍스트만 있는 태그는 한 줄을 허용한다.
+`frontend`에서 `npm run lint`로 검사하고 `npm run lint:fix`로 자동 수정한다.
+VS Code에서는 저장소 루트 폴더를 열고 ESLint 확장(`dbaeumer.vscode-eslint`)을 설치하면 공유된 `.vscode/settings.json`으로 JSX 저장 시 자동 수정한다. 의존성은 먼저 `frontend`에서 `npm ci`로 설치한다.
+
 ```bash
 cd frontend
 npm install
