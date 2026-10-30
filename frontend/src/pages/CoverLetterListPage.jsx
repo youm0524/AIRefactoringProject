@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
 import { getCoverLetters } from '../shared/api/careerpickApi.js'
+import { getLastCoverLetterPage } from '../features/coverLetters/pagination.js'
 
 const modifiedAtFormat = new Intl.DateTimeFormat('ko-KR', {
   timeZone: 'Asia/Seoul', dateStyle: 'medium', timeStyle: 'short'
 })
 
-export function CoverLetterListContent({view, onOpen, onRequireLogin, onFindJobs, onRetry}) {
+export function CoverLetterListContent({view, onOpen, onRequireLogin, onFindJobs, onRetry, onPageChange}) {
   if (view.status === 'checking' || view.status === 'loading') {
     return <p role="status">
       {view.status === 'checking' ? '로그인 정보를 확인하고 있습니다.' : '자기소개서를 불러오고 있습니다.'}
@@ -34,6 +35,8 @@ export function CoverLetterListContent({view, onOpen, onRequireLogin, onFindJobs
       <button className="login-button" onClick={onFindJobs}>채용공고 찾기</button>
     </div>
   }
+  const {page, size, totalElements} = view.data
+  const lastPage = getLastCoverLetterPage(totalElements, size)
   return <>
     <p className="cover-list-count">
       {`전체 ${view.data.totalElements}개`}
@@ -59,31 +62,47 @@ export function CoverLetterListContent({view, onOpen, onRequireLogin, onFindJobs
         </button>
       </li>)}
     </ul>
+    <nav className="cover-list-pagination" aria-label="자기소개서 목록 페이지">
+      <button className="login-button" disabled={page === 0} onClick={() => onPageChange(page - 1)}>이전</button>
+      <span aria-live="polite">
+        {`${page + 1} / ${lastPage + 1} 페이지`}
+      </span>
+      <button className="login-button" disabled={page >= lastPage} onClick={() => onPageChange(page + 1)}>다음</button>
+    </nav>
   </>
 }
 
 export default function CoverLetterListPage({token, user, onOpen, onRequireLogin, onFindJobs}) {
   const [result, setResult] = useState(null)
   const [attempt, setAttempt] = useState(0)
+  const [selection, setSelection] = useState(null)
   const userId = user?.id
+  const page = selection?.userId === userId && selection?.token === token ? selection.page : 0
 
   useEffect(() => {
     if (!token || !userId) return
     const controller = new AbortController()
-    getCoverLetters(token, 0, 20, {signal: controller.signal})
+    getCoverLetters(token, page, 20, {signal: controller.signal})
       .then(data => {
-        if (!controller.signal.aborted) setResult({token, userId, attempt, status: 'ready', data})
+        if (controller.signal.aborted) return
+        const lastPage = getLastCoverLetterPage(data.totalElements, data.size)
+        if (data.items.length === 0 && page > lastPage) {
+          setResult(null)
+          setSelection({token, userId, page: lastPage})
+          return
+        }
+        setResult({token, userId, attempt, page, status: 'ready', data})
       })
       .catch(error => {
-        if (!controller.signal.aborted) setResult({token, userId, attempt, status: 'error', error})
+        if (!controller.signal.aborted) setResult({token, userId, attempt, page, status: 'error', error})
       })
     return () => controller.abort()
-  }, [token, userId, attempt])
+  }, [token, userId, attempt, page])
 
   let view
   if (!token) view = {status: 'signed-out'}
   else if (!userId) view = {status: 'checking'}
-  else if (result?.token !== token || result?.userId !== userId || result?.attempt !== attempt) view = {status: 'loading'}
+  else if (result?.token !== token || result?.userId !== userId || result?.attempt !== attempt || result?.page !== page) view = {status: 'loading'}
   else view = result
 
   return (
@@ -99,6 +118,10 @@ export default function CoverLetterListPage({token, user, onOpen, onRequireLogin
           onRequireLogin={onRequireLogin}
           onFindJobs={onFindJobs}
           onRetry={() => setAttempt(current => current + 1)}
+          onPageChange={nextPage => {
+            if (view.status !== 'ready' || nextPage < 0 || nextPage > getLastCoverLetterPage(view.data.totalElements, view.data.size)) return
+            setSelection({token, userId, page: nextPage})
+          }}
         />
       </section>
     </main>
