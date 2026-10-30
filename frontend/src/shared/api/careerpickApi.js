@@ -1,5 +1,12 @@
 const parseJson = async response => {
-  if (!response.ok) throw new Error(`API 오류: ${response.status}`)
+  if (!response.ok) {
+    const body = await response.json().catch(() => null)
+    const error = new Error(body?.message || `API 오류: ${response.status}`)
+    error.status = response.status
+    error.code = body?.code || null
+    throw error
+  }
+  if (response.status === 204) return undefined
   return response.json()
 }
 
@@ -19,3 +26,13 @@ export const login = (email, password) => fetch(`${API_URL}/auth/login`, {
 }).then(parseJson)
 
 export const getMe = token => fetch(`${API_URL}/auth/me`, {headers:{Authorization:`Bearer ${token}`}}).then(parseJson)
+
+export const getCoverLetters = (token, page = 0, size = 20, {signal} = {}) =>
+  fetch(`${API_URL}/cover-letters?page=${encodeURIComponent(page)}&size=${encodeURIComponent(size)}`, {
+    headers: {Authorization: `Bearer ${token}`}, signal
+  }).then(parseJson)
+
+export const deleteCoverLetter = (coverLetterId, token, {signal} = {}) =>
+  fetch(`${API_URL}/cover-letters/${encodeURIComponent(coverLetterId)}`, {
+    method: 'DELETE', headers: {Authorization: `Bearer ${token}`}, signal
+  }).then(parseJson)
