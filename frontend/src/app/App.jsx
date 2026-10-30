@@ -75,7 +75,7 @@ export default function App() {
     {page === 'jobs'
       ? <JobsPage jobs={jobs} query={query} search={search} category={category} onQuery={setQuery} onSearch={setSearch} onCategory={setCategory} onOpen={setSelectedJob}/>
       : page === 'cover-list'
-        ? <CoverLetterListPage onOpen={openCoverDetail}/>
+        ? <CoverLetterListPage token={token} user={user} onOpen={openCoverDetail} onRequireLogin={() => setLoginOpen(true)} onFindJobs={() => setPage('jobs')}/>
         : page === 'cover-detail'
           ? <main className="cover-page" data-cover-letter-id={selectedCoverLetterId}>
             <div className="cover-head">
