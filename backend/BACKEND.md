@@ -61,10 +61,13 @@ com.careerpick
 │   └── UserView.java
 ├── entity
 │   ├── ChatMessageEntity.java
+│   ├── CoverLetter.java
+│   ├── CoverLetterItem.java
 │   ├── Job.java
 │   └── User.java
 ├── repository
 │   ├── ChatMessageRepository.java
+│   ├── CoverLetterRepository.java
 │   ├── JobRepository.java
 │   └── UserRepository.java
 └── service
@@ -103,6 +106,13 @@ MySQL에는 다음 테이블을 저장한다.
 - `jobs`: 채용공고
 - `job_tags`: 공고별 태그
 - `chat_messages`: 공고별 채팅 메시지
+- `cover_letters`: 사용자·공고별 자기소개서 초안 1개와 생성·수정 시각
+- `cover_letter_items`: 초안 생성 당시 질문, 문항 순서·글자 제한과 답변
+
+자기소개서 저장 기반은 구현되었으며 API·화면 연결은 Issue #7의 후속 단계에서 추가한다.
+`CoverLetter.updateAnswers`는 모든 문항을 검증한 뒤 답변과 부모 수정 시각을 갱신한다.
+동일 사용자·공고, 초안 내 문항 키·순서는 UNIQUE로 보호한다. 사용자·공고 삭제는 초안이 있으면 제한하고, 초안 삭제 시 문항은 함께 삭제한다.
+목록은 공고 관계만 가져와 페이지 조회하고, 상세 조회는 문항을 함께 가져온다. DTO 변환은 서비스 트랜잭션 안에서 수행한다.
 
 Redis에는 `auth:session:{token}` 형식으로 사용자 ID를 저장하며 TTL은 24시간이다.
 
@@ -112,10 +122,11 @@ Hibernate는 `ddl-auto=validate`로 매핑만 검증한다. 테이블 생성과 
 
 ```text
 src/main/resources/db/migration/
-└── V1__create_core_tables.sql
+├── V1__create_core_tables.sql
+└── V2__create_cover_letter_tables.sql
 ```
 
-적용된 마이그레이션 파일은 수정하지 않는다. 변경이 필요하면 `V2__설명.sql`, `V3__설명.sql`처럼 새 파일을 추가한다.
+적용된 마이그레이션 파일은 수정하지 않는다. 다음 변경은 `V3__설명.sql`처럼 새 파일로 추가한다.
 
 ## 8. 로컬 실행과 검증
 
@@ -144,3 +155,21 @@ Swagger UI의 `Authorize`에는 로그인 응답의 token 값만 입력한다. �
 ```
 
 새로운 서비스 로직에는 단위 테스트를 추가하고, DB 매핑이나 마이그레이션 변경에는 실제 MySQL을 사용하는 통합 테스트를 추가한다.
+
+### 자기소개서 MySQL 통합 테스트
+
+개발 DB와 분리된 MySQL 8.4 DB를 준비한다. 접속 계정은 해당 테스트 DB에 DDL·DML 권한이 있어야 한다.
+아래 환경변수는 테스트 실행 셸에 설정한다. 값은 로컬 테스트 환경에 맞춘다.
+
+```bash
+export TEST_DB_URL='jdbc:mysql://127.0.0.1:3308/careerpick_test?serverTimezone=UTC&characterEncoding=UTF-8'
+export TEST_DB_USERNAME='root'
+export TEST_DB_PASSWORD='로컬 테스트 DB 비밀번호'
+export TEST_MIGRATION_DB_URL='jdbc:mysql://127.0.0.1:3308/careerpick_migration_test?serverTimezone=UTC&characterEncoding=UTF-8'
+./gradlew test --rerun-tasks
+```
+
+- `TEST_DB_URL`이 있으면 `CoverLetterRepositoryTest`가 `test` 프로필로 실행된다. Flyway와 Hibernate 매핑 검증을 활성화하며, 테스트 데이터는 각 테스트 종료 시 롤백한다.
+- `TEST_MIGRATION_DB_URL`은 매 실행마다 별도의 **빈 DB**를 지정한다. V1 적용 → 기존 사용자 추가 → V2 적용 → 데이터 보존·재적용 검증을 수행하며 DB를 자동 초기화하지 않는다.
+- 환경변수가 없으면 각 DB 테스트가 건너뛰어진다. 기본 `./gradlew test` 성공만으로 MySQL 검증 완료로 판단하지 않는다.
+- 두 DB 모두 개발·운영 DB를 지정하지 않는다. Gradle의 테스트 캐시를 피하려면 위처럼 `--rerun-tasks`를 사용한다.
