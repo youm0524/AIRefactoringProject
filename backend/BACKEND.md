@@ -109,7 +109,7 @@ MySQL에는 다음 테이블을 저장한다.
 - `cover_letters`: 사용자·공고별 자기소개서 초안 1개와 생성·수정 시각
 - `cover_letter_items`: 초안 생성 당시 질문, 문항 순서·글자 제한과 답변
 
-자기소개서 저장 기반은 구현되었으며 API·화면 연결은 Issue #7의 후속 단계에서 추가한다.
+자기소개서 저장 기반과 생성·목록 API는 구현되었다. 상세 조회·수정·삭제 API와 화면 연결은 후속 단계에서 추가한다.
 `CoverLetter.updateAnswers`는 모든 문항을 검증한 뒤 답변과 부모 수정 시각을 갱신한다.
 동일 사용자·공고, 초안 내 문항 키·순서는 UNIQUE로 보호한다. 사용자·공고 삭제는 초안이 있으면 제한하고, 초안 삭제 시 문항은 함께 삭제한다.
 목록은 공고 관계만 가져와 페이지 조회하고, 상세 조회는 문항을 함께 가져온다. DTO 변환은 서비스 트랜잭션 안에서 수행한다.
@@ -173,3 +173,19 @@ export TEST_MIGRATION_DB_URL='jdbc:mysql://127.0.0.1:3308/careerpick_migration_t
 - `TEST_MIGRATION_DB_URL`은 매 실행마다 별도의 **빈 DB**를 지정한다. V1 적용 → 기존 사용자 추가 → V2 적용 → 데이터 보존·재적용 검증을 수행하며 DB를 자동 초기화하지 않는다.
 - 환경변수가 없으면 각 DB 테스트가 건너뛰어진다. 기본 `./gradlew test` 성공만으로 MySQL 검증 완료로 판단하지 않는다.
 - 두 DB 모두 개발·운영 DB를 지정하지 않는다. Gradle의 테스트 캐시를 피하려면 위처럼 `--rerun-tasks`를 사용한다.
+
+### 자기소개서 생성·목록 API
+
+| 메서드·경로 | 동작 |
+| --- | --- |
+| `POST /api/cover-letters` | `{ "jobId": 1 }`로 신규 생성(`201`, 상세·Location) 또는 기존 초안 반환(`200`, 상세) |
+| `GET /api/cover-letters?page=0&size=20` | 본인 초안 페이지(`items`, `page`, `size`, `totalElements`) |
+
+두 API는 Bearer 인증이 필요하며 OpenAPI에 `bearerAuth`를 표시한다. POST는 기존 초안의 답변·시각을 변경하지 않는다.
+목록 항목은 `id`, `jobId`, `company`, `jobTitle`, `updatedAt`이고 답변 본문은 제외한다. `page >= 0`, `1 <= size <= 100`, 정렬은 `updatedAt DESC, id DESC`다.
+생성 응답에는 `createdAt`과 질문·답변·문항 순서·제한을 담은 `items`도 포함한다.
+오류는 `{code, message}`이며 `400 INVALID_REQUEST`, `401 AUTHENTICATION_REQUIRED`, `404 JOB_NOT_FOUND`, `500 INTERNAL_ERROR`를 사용한다. 잘못된 JSON·쿼리 타입도 `400`으로 처리한다.
+로그인과 `/api/auth/me`의 사용자 응답에는 기존 `name`, `email`에 `id`를 추가했다.
+
+`CoverLetterService`는 인증·공고 확인에 기존 서비스를 사용한다. 생성 트랜잭션이 커밋된 뒤 결과를 반환하며, 사용자·공고 UNIQUE 충돌만 롤백 후 새 읽기 트랜잭션에서 재조회한다. 다른 DB 오류는 성공으로 바꾸지 않는다.
+`CoverLetterServiceIntegrationTest`는 `TEST_DB_URL`이 있으면 실제 MySQL에서 동시 요청과 사용자별 목록을 검증한다. 생성 데이터는 테스트 종료 시 해당 사용자·공고 범위에서 정리한다.
