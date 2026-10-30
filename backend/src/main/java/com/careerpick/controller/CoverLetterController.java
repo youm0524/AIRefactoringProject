@@ -29,4 +29,23 @@ public class CoverLetterController {
                                         @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "20") int size) {
         return service.list(authorization, page, size);
     }
+    @GetMapping("/{coverLetterId}")
+    public CoverLetterDetailResponse detail(@RequestHeader(name = "Authorization", required = false) String authorization,
+                                            @PathVariable long coverLetterId) {
+        return service.detail(authorization, coverLetterId);
+    }
+
+    @PutMapping("/{coverLetterId}")
+    public CoverLetterDetailResponse update(@RequestHeader(name = "Authorization", required = false) String authorization,
+                                            @PathVariable long coverLetterId, @Valid @RequestBody UpdateCoverLetterRequest request) {
+        return service.update(authorization, coverLetterId, request);
+    }
+
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "204", description = "초안 삭제 완료")
+    @DeleteMapping("/{coverLetterId}")
+    public ResponseEntity<Void> delete(@RequestHeader(name = "Authorization", required = false) String authorization,
+                                       @PathVariable long coverLetterId) {
+        service.delete(authorization, coverLetterId);
+        return ResponseEntity.noContent().build();
+    }
 }

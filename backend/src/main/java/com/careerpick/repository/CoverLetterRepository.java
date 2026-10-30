@@ -6,6 +6,10 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.Optional;
+import jakarta.persistence.LockModeType;
+import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 public interface CoverLetterRepository extends JpaRepository<CoverLetter, Long> {
     @EntityGraph(attributePaths = {"job", "items"})
@@ -13,6 +17,10 @@ public interface CoverLetterRepository extends JpaRepository<CoverLetter, Long> 
 
     @EntityGraph(attributePaths = {"job", "items"})
     Optional<CoverLetter> findByIdAndUserId(long id, long userId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select c from CoverLetter c where c.id = :id and c.user.id = :userId")
+    Optional<CoverLetter> findForUpdate(@Param("id") long id, @Param("userId") long userId);
 
     @EntityGraph(attributePaths = "job")
     Page<CoverLetter> findByUserIdOrderByUpdatedAtDescIdDesc(long userId, Pageable pageable);

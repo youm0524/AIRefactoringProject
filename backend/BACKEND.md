@@ -109,7 +109,7 @@ MySQL에는 다음 테이블을 저장한다.
 - `cover_letters`: 사용자·공고별 자기소개서 초안 1개와 생성·수정 시각
 - `cover_letter_items`: 초안 생성 당시 질문, 문항 순서·글자 제한과 답변
 
-자기소개서 저장 기반과 생성·목록 API는 구현되었다. 상세 조회·수정·삭제 API와 화면 연결은 후속 단계에서 추가한다.
+자기소개서 저장 기반과 생성·목록·상세·저장·삭제 API는 구현되었다. 화면 연결은 후속 단계에서 추가한다.
 `CoverLetter.updateAnswers`는 모든 문항을 검증한 뒤 답변과 부모 수정 시각을 갱신한다.
 동일 사용자·공고, 초안 내 문항 키·순서는 UNIQUE로 보호한다. 사용자·공고 삭제는 초안이 있으면 제한하고, 초안 삭제 시 문항은 함께 삭제한다.
 목록은 공고 관계만 가져와 페이지 조회하고, 상세 조회는 문항을 함께 가져온다. DTO 변환은 서비스 트랜잭션 안에서 수행한다.
@@ -189,3 +189,22 @@ export TEST_MIGRATION_DB_URL='jdbc:mysql://127.0.0.1:3308/careerpick_migration_t
 
 `CoverLetterService`는 인증·공고 확인에 기존 서비스를 사용한다. 생성 트랜잭션이 커밋된 뒤 결과를 반환하며, 사용자·공고 UNIQUE 충돌만 롤백 후 새 읽기 트랜잭션에서 재조회한다. 다른 DB 오류는 성공으로 바꾸지 않는다.
 `CoverLetterServiceIntegrationTest`는 `TEST_DB_URL`이 있으면 실제 MySQL에서 동시 요청과 사용자별 목록을 검증한다. 생성 데이터는 테스트 종료 시 해당 사용자·공고 범위에서 정리한다.
+
+### 자기소개서 상세·저장·삭제 API
+
+모두 Bearer 인증이 필요하다. `coverLetterId`는 초안 ID다.
+
+| 메서드·경로 | 요청·응답 |
+| --- | --- |
+| `GET /api/cover-letters/{coverLetterId}` | `200` + 생성 API와 같은 상세 DTO |
+| `PUT /api/cover-letters/{coverLetterId}` | `{ "items": [{ "id": 100, "answer": "답변" }, { "id": 101, "answer": "" }] }` → `200` + 저장된 상세 |
+| `DELETE /api/cover-letters/{coverLetterId}` | 본문 없음 → `204`, 응답 본문 없음 |
+
+문항 ID는 상세 응답의 값을 사용한다. 저장은 모든 문항을 보내며 중복·누락·타 초안 문항·NULL·길이 초과를 `400`으로 거절한다.
+공백과 빈 답변은 보존하고 Java UTF-16 길이 기준으로 제한을 검사한다. 실패 시 답변·수정 시각은 유지한다.
+쓰기 작업은 부모 행을 잠근 뒤 답변을 읽고 처리해 동시 저장 시 문항이 섞이지 않게 한다. 충돌 버전 검사는 제공하지 않는다.
+없는 초안·타인 초안은 모두 `404 COVER_LETTER_NOT_FOUND`이며, 기존 공고 없음은 `404 JOB_NOT_FOUND`를 유지한다.
+삭제 후 문항도 제거되며 동일 공고에 다시 작성하면 새 ID의 빈 초안을 생성한다.
+
+Swagger 테스트 순서: 로그인 → Authorize(token 값만 입력) → 공고 목록에서 jobId 확인 → POST 생성 → 응답 id로 GET 상세 → 문항 id로 PUT 저장 → GET 재조회 → DELETE → GET의 404 확인.
+Postman에서는 Authorization의 Bearer Token에 같은 토큰을 입력하고 JSON 요청에 `Content-Type: application/json`을 사용한다.

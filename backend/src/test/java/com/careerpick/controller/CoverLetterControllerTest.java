@@ -54,4 +54,30 @@ class CoverLetterControllerTest {
         mvc.perform(get("/api/cover-letters")).andExpect(status().isInternalServerError()).andExpect(jsonPath("$.code").value("INTERNAL_ERROR"))
             .andExpect(jsonPath("$.message").value("요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요."));
     }
+    @Test void detailUpdateAndDeleteContracts() throws Exception {
+        var detail = new CoverLetterDetailResponse(10,3,"기업","공고",Instant.EPOCH,Instant.EPOCH,List.of());
+        when(service.detail("Bearer token",10)).thenReturn(detail);
+        when(service.update(eq("Bearer token"),eq(10L),any())).thenReturn(detail);
+        mvc.perform(get("/api/cover-letters/10").header("Authorization","Bearer token"))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.id").value(10));
+        mvc.perform(put("/api/cover-letters/10").header("Authorization","Bearer token").contentType(MediaType.APPLICATION_JSON)
+            .content("{\"items\":[{\"id\":100,\"answer\":\"답변\"}]}"))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.id").value(10));
+        mvc.perform(delete("/api/cover-letters/10").header("Authorization","Bearer token"))
+            .andExpect(status().isNoContent()).andExpect(content().string(""));
+        verify(service).delete("Bearer token",10);
+    }
+    @Test void validatesNestedUpdateAndPathAndMapsDraftNotFound() throws Exception {
+        for (String body : List.of("{}","{\"items\":[]}","{\"items\":[null]}",
+                "{\"items\":[{\"id\":0,\"answer\":\"\"}]}","{\"items\":[{\"id\":1,\"answer\":null}]}")) {
+            mvc.perform(put("/api/cover-letters/10").contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
+        }
+        mvc.perform(get("/api/cover-letters/abc")).andExpect(status().isBadRequest());
+        mvc.perform(delete("/api/cover-letters/abc")).andExpect(status().isBadRequest());
+        verifyNoInteractions(service);
+        when(service.detail(null,10)).thenThrow(new com.careerpick.service.CoverLetterNotFoundException());
+        mvc.perform(get("/api/cover-letters/10")).andExpect(status().isNotFound())
+            .andExpect(jsonPath("$.code").value("COVER_LETTER_NOT_FOUND"));
+    }
 }

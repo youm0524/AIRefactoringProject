@@ -60,6 +60,61 @@ public class CoverLetterService {
         });
     }
 
+    public CoverLetterDetailResponse detail(String authorization, long coverLetterId) {
+        var user = auth.requireUserEntity(authorization);
+        validateId(coverLetterId);
+        return readTransaction.execute(status -> CoverLetterDetailResponse.from(requireLetter(coverLetterId, user.id())));
+    }
+
+    public CoverLetterDetailResponse update(String authorization, long coverLetterId, UpdateCoverLetterRequest request) {
+        var user = auth.requireUserEntity(authorization);
+        validateId(coverLetterId);
+        return writeTransaction.execute(status -> {
+            var letter = requireLetterForWrite(coverLetterId, user.id());
+            var answers = new java.util.HashMap<Long, String>();
+            if (request == null || request.items() == null || request.items().isEmpty()) throw invalidAnswers();
+            for (var item : request.items()) {
+                if (item == null || item.id() == null || item.id() <= 0 || item.answer() == null || answers.containsKey(item.id())) {
+                    throw invalidAnswers();
+                }
+                answers.put(item.id(), item.answer());
+            }
+            try {
+                letter.updateAnswers(answers);
+            } catch (IllegalArgumentException exception) {
+                throw invalidAnswers();
+            }
+            letters.flush();
+            return CoverLetterDetailResponse.from(letter);
+        });
+    }
+
+    public void delete(String authorization, long coverLetterId) {
+        var user = auth.requireUserEntity(authorization);
+        validateId(coverLetterId);
+        writeTransaction.executeWithoutResult(status -> {
+            letters.delete(requireLetterForWrite(coverLetterId, user.id()));
+            letters.flush();
+        });
+    }
+
+    private CoverLetter requireLetter(long id, long userId) {
+        return letters.findByIdAndUserId(id, userId).orElseThrow(CoverLetterNotFoundException::new);
+    }
+
+    private CoverLetter requireLetterForWrite(long id, long userId) {
+        // 동시 저장에서 서로 다른 요청의 답변이 섞이지 않도록 부모를 잠근 뒤 문항을 읽는다.
+        return letters.findForUpdate(id, userId).orElseThrow(CoverLetterNotFoundException::new);
+    }
+
+    private void validateId(long id) {
+        if (id <= 0) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "자기소개서 ID를 확인해 주세요.");
+    }
+
+    private ResponseStatusException invalidAnswers() {
+        return new ResponseStatusException(HttpStatus.BAD_REQUEST, "문항과 답변의 글자 제한을 확인해 주세요.");
+    }
+
     private boolean isDuplicateDraft(Throwable exception) {
         for (Throwable cause = exception; cause != null; cause = cause.getCause()) {
             if (cause instanceof ConstraintViolationException violation && violation.getConstraintName() != null
