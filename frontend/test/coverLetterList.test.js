@@ -13,7 +13,7 @@ const output = await build({
       import React from 'react';
       import {renderToStaticMarkup} from 'react-dom/server';
       import {CoverLetterListContent} from './src/pages/CoverLetterListPage.jsx';
-      export const render = view => renderToStaticMarkup(React.createElement(CoverLetterListContent, {view}));
+      export const render = (view, options = {}) => renderToStaticMarkup(React.createElement(CoverLetterListContent, {view, ...options}));
       export const pageAction = (view, label) => {
         let selected;
         const tree = CoverLetterListContent({view, onPageChange: page => {selected = page}});
@@ -22,11 +22,18 @@ const output = await build({
         if (!button.props.disabled) button.props.onClick();
         return {disabled: button.props.disabled, selected};
       };
+      export const deleteFirst = view => {
+        let selected;
+        const tree = CoverLetterListContent({view, onDelete: letter => {selected = letter}});
+        const list = tree.props.children.find(child => child.type === 'ul');
+        list.props.children[0].props.children.find(child => child.props.className === 'cover-letter-actions').props.children[1].props.onClick();
+        return selected;
+      };
       export const selectFirst = view => {
         let selected;
         const tree = CoverLetterListContent({view, onOpen: id => {selected = id}});
         const list = tree.props.children.find(child => child.type === 'ul');
-        list.props.children[0].props.children.find(child => child.type === 'button').props.onClick();
+        list.props.children[0].props.children.find(child => child.props.className === 'cover-letter-actions').props.children[0].props.onClick();
         return selected;
       };
     `,
@@ -37,7 +44,7 @@ const output = await build({
 const directory = await mkdtemp(join(tmpdir(), 'careerpick-list-'))
 const filename = join(directory, 'view.cjs')
 await writeFile(filename, output.outputFiles[0].text)
-const {render, selectFirst, pageAction} = createRequire(import.meta.url)(filename)
+const {render, selectFirst, pageAction, deleteFirst} = createRequire(import.meta.url)(filename)
 after(() => rm(directory, {recursive: true, force: true}))
 
 test('로그인 전·로그인 확인 중·조회 중 상태를 구분한다', () => {
@@ -86,4 +93,16 @@ test('첫·중간·마지막 페이지의 이동과 경계를 표시한다', () 
   assert.deepEqual(pageAction(viewAt(1), '다음'), {disabled: false, selected: 2})
   assert.deepEqual(pageAction(viewAt(2), '다음'), {disabled: true, selected: undefined})
   assert.match(render(viewAt(2)), /3 \/ 3 페이지/)
+})
+
+
+test('삭제 버튼은 선택한 초안을 전달하고 삭제 중에는 항목·페이지 버튼을 잠근다', () => {
+  const letter = {id: 17, jobId: 3, company: '기업', jobTitle: '공고', updatedAt: '2026-10-30T00:00:00Z'}
+  const view = {status: 'ready', data: {page: 0, size: 20, totalElements: 21, items: [letter]}}
+  assert.deepEqual(deleteFirst(view), letter)
+  const html = render(view, {deletingId: 17})
+  assert.match(html, /삭제 중…/)
+  assert.equal((html.match(/disabled=""/g) || []).length, 4)
+  assert.match(html, /기업/)
+  assert.match(html, /공고/)
 })
