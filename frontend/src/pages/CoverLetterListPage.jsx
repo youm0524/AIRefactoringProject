@@ -79,7 +79,7 @@ export function CoverLetterListContent({view, onOpen, onRequireLogin, onFindJobs
   </>
 }
 
-export default function CoverLetterListPage({token, user, onOpen, onRequireLogin, onFindJobs}) {
+export default function CoverLetterListPage({token, user, onOpen, onRequireLogin, onFindJobs, sessionError, onRetrySession, onSessionExpired}) {
   const [result, setResult] = useState(null)
   const [attempt, setAttempt] = useState(0)
   const [selection, setSelection] = useState(null)
@@ -108,13 +108,16 @@ export default function CoverLetterListPage({token, user, onOpen, onRequireLogin
         setResult({token, userId, attempt, page, status: 'ready', data})
       })
       .catch(error => {
-        if (!controller.signal.aborted) setResult({token, userId, attempt, page, status: 'error', error})
+        if (controller.signal.aborted) return
+        if (error.status === 401) onSessionExpired?.(token)
+        else setResult({token, userId, attempt, page, status: 'error', error})
       })
     return () => controller.abort()
-  }, [token, userId, attempt, page])
+  }, [token, userId, attempt, page, onSessionExpired])
 
   let view
   if (!token) view = {status: 'signed-out'}
+  else if (!userId && sessionError) view = {status: 'error', error: sessionError}
   else if (!userId) view = {status: 'checking'}
   else if (result?.token !== token || result?.userId !== userId || result?.attempt !== attempt || result?.page !== page) view = {status: 'loading'}
   else view = result
@@ -136,7 +139,9 @@ export default function CoverLetterListPage({token, user, onOpen, onRequireLogin
         ? '자기소개서를 삭제했습니다.' : '이미 삭제되었거나 접근할 수 없는 자기소개서입니다. 목록을 갱신합니다.'})
       setAttempt(current => current + 1)
     } catch (error) {
-      if (!operation.controller.signal.aborted) setDeletion({token, userId, letter, status: 'error', error})
+      if (operation.controller.signal.aborted) return
+      if (error.status === 401) onSessionExpired?.(token)
+      else setDeletion({token, userId, letter, status: 'error', error})
     } finally {
       if (activeDelete.current === operation) activeDelete.current = null
     }
@@ -165,7 +170,7 @@ export default function CoverLetterListPage({token, user, onOpen, onRequireLogin
           onOpen={onOpen}
           onRequireLogin={onRequireLogin}
           onFindJobs={onFindJobs}
-          onRetry={() => setAttempt(current => current + 1)}
+          onRetry={!userId && sessionError ? onRetrySession : () => setAttempt(current => current + 1)}
           onDelete={removeLetter}
           deletingId={currentDeletion?.status === 'pending' ? currentDeletion.letter.id : null}
           onPageChange={nextPage => {

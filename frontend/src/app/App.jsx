@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { getJobs, getMe, login } from '../shared/api/careerpickApi.js'
 import { filterSampleJobs, sampleJobs } from '../features/jobs/sampleJobs.js'
 import LoginModal from '../features/auth/LoginModal.jsx'
+import { createSessionRequestScope } from '../features/auth/sessionRequestScope.js'
 import JobChat from '../features/chat/JobChat.jsx'
 import JobDetail from '../features/jobs/JobDetail.jsx'
 import CoverLetterPage from '../pages/CoverLetterPage.jsx'
@@ -21,28 +22,76 @@ export default function App() {
       .catch(() => { setJobs(filterSampleJobs(sampleJobs, search, category)); setApiOnline(false) })
   }, [search, category])
 
+  const tokenRef = useRef(token)
+  const verification = useRef(createSessionRequestScope())
+  const loginRequest = useRef(createSessionRequestScope())
+  const [sessionError, setSessionError] = useState(null)
+  const [sessionAttempt, setSessionAttempt] = useState(0)
+
+  const clearSession = useCallback(() => {
+    tokenRef.current = ''
+    verification.current.cancel()
+    localStorage.removeItem('careerpick-token')
+    setToken('')
+    setUser(null)
+    setSessionError(null)
+    setSelectedCoverLetterId(null)
+    setTargetJob(null)
+    setPage(current => current.startsWith('cover') ? 'cover-list' : current)
+  }, [])
+
+  const expireSession = useCallback(failedToken => {
+    if (!failedToken || tokenRef.current !== failedToken) return
+    clearSession()
+    setLoginOpen(true)
+  }, [clearSession])
+
   useEffect(() => {
-    if (token) getMe(token).then(setUser).catch(() => {
-      localStorage.removeItem('careerpick-token')
-      setToken('')
-    })
-  }, [token])
+    if (!token) return
+    const request = verification.current.start()
+    getMe(token, {signal: request.signal})
+      .then(data => {
+        if (!request.isCurrent() || tokenRef.current !== token) return
+        setUser(data)
+        setSessionError(null)
+      })
+      .catch(error => {
+        if (!request.isCurrent() || tokenRef.current !== token) return
+        if (error.status === 401) expireSession(token)
+        else setSessionError({token, error})
+      })
+    return () => verification.current.cancel()
+  }, [token, sessionAttempt, expireSession])
+
+  useEffect(() => () => loginRequest.current.cancel(), [])
 
   const showNotice = text => {
     setNotice(text)
     window.setTimeout(() => setNotice(''), 2200)
   }
   const signIn = async (email, password) => {
-    const result = await login(email, password)
+    const request = loginRequest.current.start()
+    const result = await login(email, password, {signal: request.signal})
+    if (!request.isCurrent()) throw new DOMException('취소된 로그인 요청입니다.', 'AbortError')
+    verification.current.cancel()
+    tokenRef.current = result.token
     localStorage.setItem('careerpick-token', result.token)
     setToken(result.token)
     setUser(result.user)
+    setSessionError(null)
+    setSelectedCoverLetterId(null)
+    setTargetJob(null)
+    setPage(current => current.startsWith('cover') ? 'cover-list' : current)
     showNotice(`${result.user.name}님, 반가워요!`)
   }
+  const closeLogin = () => {
+    loginRequest.current.cancel()
+    setLoginOpen(false)
+  }
   const signOut = () => {
-    localStorage.removeItem('careerpick-token')
-    setToken('')
-    setUser(null)
+    loginRequest.current.cancel()
+    clearSession()
+    setLoginOpen(false)
     showNotice('로그아웃했습니다')
   }
   const openCoverList = () => {
@@ -75,7 +124,17 @@ export default function App() {
     {page === 'jobs'
       ? <JobsPage jobs={jobs} query={query} search={search} category={category} onQuery={setQuery} onSearch={setSearch} onCategory={setCategory} onOpen={setSelectedJob}/>
       : page === 'cover-list'
-        ? <CoverLetterListPage token={token} user={user} onOpen={openCoverDetail} onRequireLogin={() => setLoginOpen(true)} onFindJobs={() => setPage('jobs')}/>
+        ? <CoverLetterListPage
+          key={`${token}:${user?.id || 'pending'}`}
+          token={token}
+          user={user}
+          sessionError={sessionError?.token === token ? sessionError.error : null}
+          onRetrySession={() => {setSessionError(null); setSessionAttempt(current => current + 1)}}
+          onSessionExpired={expireSession}
+          onOpen={openCoverDetail}
+          onRequireLogin={() => setLoginOpen(true)}
+          onFindJobs={() => setPage('jobs')}
+        />
         : page === 'cover-detail'
           ? <main className="cover-page" data-cover-letter-id={selectedCoverLetterId}>
             <div className="cover-head">
@@ -88,7 +147,7 @@ export default function App() {
     <footer><a className="brand small" href="#top"><span>career</span><b>pick</b><i>●</i></a><p>공고 탐색부터 자기소개서, 지원자 커뮤니티까지.</p><div><button onClick={() => setPage('jobs')}>채용공고</button><button onClick={openCoverList}>자기소개서</button></div><small>© 2026 Careerpick. MVP demonstration.</small></footer>
     <JobDetail job={selectedJob} onClose={() => setSelectedJob(null)} onWrite={openCover} onCommunity={openCommunity}/>
     <JobChat job={chatJob} user={user} token={token} onClose={() => setChatJob(null)} onRequireLogin={() => setLoginOpen(true)} onConnectionChange={setApiOnline}/>
-    <LoginModal open={loginOpen} onClose={() => setLoginOpen(false)} onLogin={signIn}/>
+    <LoginModal key={loginOpen ? 'open' : 'closed'} open={loginOpen} onClose={closeLogin} onLogin={signIn}/>
     <div className={`toast ${notice ? 'show' : ''}`} role="status">{notice}</div>
   </>
 }

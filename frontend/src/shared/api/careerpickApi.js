@@ -21,11 +21,11 @@ export const sendMessage = (jobId, text, token) => fetch(`${API_URL}/jobs/${jobI
   method: 'POST', headers: {'Content-Type':'application/json', Authorization:`Bearer ${token}`}, body: JSON.stringify({text})
 }).then(parseJson)
 
-export const login = (email, password) => fetch(`${API_URL}/auth/login`, {
-  method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({email, password})
+export const login = (email, password, {signal} = {}) => fetch(`${API_URL}/auth/login`, {
+  method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({email, password}), signal
 }).then(parseJson)
 
-export const getMe = token => fetch(`${API_URL}/auth/me`, {headers:{Authorization:`Bearer ${token}`}}).then(parseJson)
+export const getMe = (token, {signal} = {}) => fetch(`${API_URL}/auth/me`, {headers:{Authorization:`Bearer ${token}`}, signal}).then(parseJson)
 
 export const getCoverLetters = (token, page = 0, size = 20, {signal} = {}) =>
   fetch(`${API_URL}/cover-letters?page=${encodeURIComponent(page)}&size=${encodeURIComponent(size)}`, {
