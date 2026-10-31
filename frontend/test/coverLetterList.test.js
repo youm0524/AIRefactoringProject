@@ -15,7 +15,7 @@ const output = await build({
       import {CoverLetterListContent} from './src/pages/CoverLetterListPage.jsx';
       import CoverLetterStartPage from './src/pages/CoverLetterStartPage.jsx';
       import CoverLetterPage, {CoverLetterDetailContent} from './src/pages/CoverLetterPage.jsx';
-      export const renderDetail = view => renderToStaticMarkup(React.createElement(CoverLetterDetailContent, {view}));
+      export const renderDetail = (view, options = {}) => renderToStaticMarkup(React.createElement(CoverLetterDetailContent, {view, ...options}));
       export const renderDetailPage = props => renderToStaticMarkup(React.createElement(CoverLetterPage, props));
       export const renderStart = props => renderToStaticMarkup(React.createElement(CoverLetterStartPage, props));
       export const render = (view, options = {}) => renderToStaticMarkup(React.createElement(CoverLetterListContent, {view, ...options}));
@@ -155,7 +155,7 @@ test('상세 대상 없음과 서버 오류를 구분하고 서버 오류에 재
   assert.doesNotMatch(failed, /textarea/)
 })
 
-test('서버의 질문·답변·글자 제한을 응답 순서로 읽기 전용 표시한다', () => {
+test('서버의 질문·답변·글자 제한을 응답 순서로 편집 화면에 표시한다', () => {
   const html = renderDetail({status: 'ready', detail: {company: '기업 <A>', jobTitle: '개발자 채용', updatedAt: '2026-10-31T00:00:00Z',
     items: [
       {id: 500, questionText: '서버에서 제공한 첫 질문', maxLength: 120, answer: '😀'},
@@ -170,8 +170,8 @@ test('서버의 질문·답변·글자 제한을 응답 순서로 읽기 전용 
   assert.match(html, /maxLength="120"/i)
   assert.match(html, /id="cover-item-500"/)
   assert.match(html, /  저장한 답변\n/)
-  assert.equal((html.match(/readOnly=""/gi) || []).length, 3)
-  assert.doesNotMatch(html, /초안 저장/)
+  assert.doesNotMatch(html, /readOnly/i)
+  assert.match(html, /초안 저장/)
 })
 
 test('상세의 마지막 저장 시각을 한국 시간으로 표시하고 목록 복귀를 제공한다', () => {
@@ -179,4 +179,28 @@ test('상세의 마지막 저장 시각을 한국 시간으로 표시하고 목�
   assert.match(html, /dateTime="2026-10-31T00:00:00Z"/i)
   assert.match(html, /9:00/)
   assert.match(renderDetailPage({coverLetterId: 17, token: 'token', user: {id: 1}}), /목록으로/)
+})
+
+
+test('편집값과 UTF-16 글자 수를 표시하고 저장 중 입력·저장 버튼을 잠근다', () => {
+  const view = {status: 'ready', detail: {company: '기업', jobTitle: '공고', updatedAt: '2026-10-31T00:00:00Z',
+    items: [{id: 101, questionText: '질문', maxLength: 700, answer: '서버 원본'}]}}
+  const html = renderDetail(view, {answers: {101: '😀 편집 중'}, saveState: {status: 'saving'}})
+  assert.match(html, /😀 편집 중/)
+  assert.doesNotMatch(html, /서버 원본/)
+  assert.match(html, /7 \/ 700/)
+  assert.match(html, /저장 중…/)
+  assert.equal((html.match(/disabled=""/g) || []).length, 2)
+})
+
+test('저장 실패는 입력·이전 저장 시각을 유지한 화면과 재시도를 표시한다', () => {
+  const view = {status: 'ready', detail: {company: '기업', jobTitle: '공고', updatedAt: '2026-10-31T00:00:00Z',
+    items: [{id: 101, questionText: '질문', maxLength: 700, answer: '이전 답변'}]}}
+  const html = renderDetail(view, {answers: {101: '저장되지 않은 입력'}, saveState: {status: 'error', error: {status: 500, message: '저장 실패'}}})
+  assert.match(html, /저장되지 않은 입력/)
+  assert.match(html, /저장 실패/)
+  assert.match(html, /저장 다시 시도/)
+  assert.match(html, /2026-10-31T00:00:00Z/)
+  assert.doesNotMatch(html, /자기소개서를 저장했습니다/)
+  assert.match(renderDetail(view, {saveState: {status: 'success'}}), /자기소개서를 저장했습니다/)
 })
