@@ -5,7 +5,7 @@ import LoginModal from '../features/auth/LoginModal.jsx'
 import { createSessionRequestScope } from '../features/auth/sessionRequestScope.js'
 import JobChat from '../features/chat/JobChat.jsx'
 import JobDetail from '../features/jobs/JobDetail.jsx'
-import CoverLetterPage from '../pages/CoverLetterPage.jsx'
+import CoverLetterStartPage from '../pages/CoverLetterStartPage.jsx'
 import CoverLetterListPage from '../pages/CoverLetterListPage.jsx'
 import JobsPage from '../pages/JobsPage.jsx'
 
@@ -22,6 +22,7 @@ export default function App() {
       .catch(() => { setJobs(filterSampleJobs(sampleJobs, search, category)); setApiOnline(false) })
   }, [search, category])
 
+  const coverStartJob = useRef(null)
   const tokenRef = useRef(token)
   const verification = useRef(createSessionRequestScope())
   const loginRequest = useRef(createSessionRequestScope())
@@ -29,6 +30,7 @@ export default function App() {
   const [sessionAttempt, setSessionAttempt] = useState(0)
 
   const clearSession = useCallback(() => {
+    coverStartJob.current = null
     tokenRef.current = ''
     verification.current.cancel()
     localStorage.removeItem('careerpick-token')
@@ -42,7 +44,13 @@ export default function App() {
 
   const expireSession = useCallback(failedToken => {
     if (!failedToken || tokenRef.current !== failedToken) return
+    const resumeJob = coverStartJob.current
     clearSession()
+    if (resumeJob) {
+      coverStartJob.current = resumeJob
+      setTargetJob(resumeJob)
+      setPage('cover-start')
+    }
     setLoginOpen(true)
   }, [clearSession])
 
@@ -80,13 +88,19 @@ export default function App() {
     setUser(result.user)
     setSessionError(null)
     setSelectedCoverLetterId(null)
-    setTargetJob(null)
-    setPage(current => current.startsWith('cover') ? 'cover-list' : current)
+    const resumeJob = coverStartJob.current
+    setTargetJob(resumeJob)
+    setPage(current => resumeJob ? 'cover-start' : current.startsWith('cover') ? 'cover-list' : current)
     showNotice(`${result.user.name}님, 반가워요!`)
   }
   const closeLogin = () => {
     loginRequest.current.cancel()
     setLoginOpen(false)
+    if (coverStartJob.current) {
+      coverStartJob.current = null
+      setTargetJob(null)
+      setPage('cover-list')
+    }
   }
   const signOut = () => {
     loginRequest.current.cancel()
@@ -95,6 +109,7 @@ export default function App() {
     showNotice('로그아웃했습니다')
   }
   const openCoverList = () => {
+    coverStartJob.current = null
     setSelectedCoverLetterId(null)
     setTargetJob(null)
     setSelectedJob(null)
@@ -107,11 +122,26 @@ export default function App() {
     window.scrollTo({top:0, behavior:'smooth'})
   }
   const openCover = job => {
+    if (coverStartJob.current) return
+    coverStartJob.current = job
     setSelectedCoverLetterId(null)
     setTargetJob(job)
     setSelectedJob(null)
-    setPage('cover')
+    setPage('cover-start')
+    if (!tokenRef.current) setLoginOpen(true)
     window.scrollTo({top:0, behavior:'smooth'})
+  }
+  const coverCreated = useCallback((detail, jobId, requestToken) => {
+    if (coverStartJob.current?.id !== jobId || tokenRef.current !== requestToken) return
+    coverStartJob.current = null
+    setTargetJob(null)
+    setSelectedCoverLetterId(detail.id)
+    setPage('cover-detail')
+  }, [])
+  const openJobs = () => {
+    coverStartJob.current = null
+    setTargetJob(null)
+    setPage('jobs')
   }
   const openCommunity = job => {
     setSelectedJob(null)
@@ -119,7 +149,23 @@ export default function App() {
   }
 
   return <>
-    <header className="topbar"><button className="brand brand-button" onClick={() => setPage('jobs')}><span>career</span><b>pick</b><i>●</i></button><nav><button className={page === 'jobs' ? 'active' : ''} onClick={() => setPage('jobs')}>채용공고</button><button className={page.startsWith('cover') ? 'active' : ''} onClick={openCoverList}>자기소개서</button><button onClick={() => {setPage('jobs'); setTimeout(() => document.querySelector('.community')?.scrollIntoView({behavior:'smooth'}), 0)}}>커뮤니티</button></nav><div className="header-actions"><button className="login-button" onClick={user ? signOut : () => setLoginOpen(true)}>{user ? `${user.name} · 로그아웃` : '로그인'}</button></div></header>
+    <header className="topbar">
+      <button className="brand brand-button" onClick={openJobs}>
+        <span>career</span>
+        <b>pick</b>
+        <i>●</i>
+      </button>
+      <nav>
+        <button className={page === 'jobs' ? 'active' : ''} onClick={openJobs}>채용공고</button>
+        <button className={page.startsWith('cover') ? 'active' : ''} onClick={openCoverList}>자기소개서</button>
+        <button onClick={() => {openJobs(); setTimeout(() => document.querySelector('.community')?.scrollIntoView({behavior:'smooth'}), 0)}}>커뮤니티</button>
+      </nav>
+      <div className="header-actions">
+        <button className="login-button" onClick={user ? signOut : () => setLoginOpen(true)}>
+          {user ? `${user.name} · 로그아웃` : '로그인'}
+        </button>
+      </div>
+    </header>
     {!apiOnline && <div className="api-banner">백엔드 연결 전 · 일부 기능은 데모 모드로 표시됩니다</div>}
     {page === 'jobs'
       ? <JobsPage jobs={jobs} query={query} search={search} category={category} onQuery={setQuery} onSearch={setSearch} onCategory={setCategory} onOpen={setSelectedJob}/>
@@ -134,7 +180,7 @@ export default function App() {
             onSessionExpired={expireSession}
             onOpen={openCoverDetail}
             onRequireLogin={() => setLoginOpen(true)}
-            onFindJobs={() => setPage('jobs')}
+            onFindJobs={openJobs}
           />
         )
         : page === 'cover-detail'
@@ -145,11 +191,38 @@ export default function App() {
               <h1>자기소개서 작성</h1>
             </div>
           </main>
-          : <CoverLetterPage key={targetJob?.id || 'general'} job={targetJob} onBack={() => setPage('jobs')} onNotice={showNotice}/>}
-    <footer><a className="brand small" href="#top"><span>career</span><b>pick</b><i>●</i></a><p>공고 탐색부터 자기소개서, 지원자 커뮤니티까지.</p><div><button onClick={() => setPage('jobs')}>채용공고</button><button onClick={openCoverList}>자기소개서</button></div><small>© 2026 Careerpick. MVP demonstration.</small></footer>
+          : targetJob && (
+            <CoverLetterStartPage
+              key={`${targetJob.id}:${token}:${user?.id || 'pending'}`}
+              job={targetJob}
+              token={token}
+              user={user}
+              sessionError={sessionError?.token === token ? sessionError.error : null}
+              onRetrySession={() => {setSessionError(null); setSessionAttempt(current => current + 1)}}
+              onRequireLogin={() => setLoginOpen(true)}
+              onSessionExpired={expireSession}
+              onCreated={coverCreated}
+              onBack={openCoverList}
+            />
+          )}
+    <footer>
+      <a className="brand small" href="#top">
+        <span>career</span>
+        <b>pick</b>
+        <i>●</i>
+      </a>
+      <p>공고 탐색부터 자기소개서, 지원자 커뮤니티까지.</p>
+      <div>
+        <button onClick={openJobs}>채용공고</button>
+        <button onClick={openCoverList}>자기소개서</button>
+      </div>
+      <small>© 2026 Careerpick. MVP demonstration.</small>
+    </footer>
     <JobDetail job={selectedJob} onClose={() => setSelectedJob(null)} onWrite={openCover} onCommunity={openCommunity}/>
     <JobChat job={chatJob} user={user} token={token} onClose={() => setChatJob(null)} onRequireLogin={() => setLoginOpen(true)} onConnectionChange={setApiOnline}/>
-    <LoginModal key={loginOpen ? 'open' : 'closed'} open={loginOpen} onClose={closeLogin} onLogin={signIn}/>
-    <div className={`toast ${notice ? 'show' : ''}`} role="status">{notice}</div>
+    <LoginModal key={loginOpen ? 'open' : 'closed'} open={loginOpen} onClose={closeLogin} onLogin={signIn} onSuccess={() => {loginRequest.current.cancel(); setLoginOpen(false)}}/>
+    <div className={`toast ${notice ? 'show' : ''}`} role="status">
+      {notice}
+    </div>
   </>
 }

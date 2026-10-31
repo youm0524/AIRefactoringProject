@@ -13,6 +13,8 @@ const output = await build({
       import React from 'react';
       import {renderToStaticMarkup} from 'react-dom/server';
       import {CoverLetterListContent} from './src/pages/CoverLetterListPage.jsx';
+      import CoverLetterStartPage from './src/pages/CoverLetterStartPage.jsx';
+      export const renderStart = props => renderToStaticMarkup(React.createElement(CoverLetterStartPage, props));
       export const render = (view, options = {}) => renderToStaticMarkup(React.createElement(CoverLetterListContent, {view, ...options}));
       export const pageAction = (view, label) => {
         let selected;
@@ -44,7 +46,7 @@ const output = await build({
 const directory = await mkdtemp(join(tmpdir(), 'careerpick-list-'))
 const filename = join(directory, 'view.cjs')
 await writeFile(filename, output.outputFiles[0].text)
-const {render, selectFirst, pageAction, deleteFirst} = createRequire(import.meta.url)(filename)
+const {render, selectFirst, pageAction, deleteFirst, renderStart} = createRequire(import.meta.url)(filename)
 after(() => rm(directory, {recursive: true, force: true}))
 
 test('로그인 전·로그인 확인 중·조회 중 상태를 구분한다', () => {
@@ -105,4 +107,27 @@ test('삭제 버튼은 선택한 초안을 전달하고 삭제 중에는 항목�
   assert.equal((html.match(/disabled=""/g) || []).length, 4)
   assert.match(html, /기업/)
   assert.match(html, /공고/)
+})
+
+
+test('공고 작성 진입은 선택한 공고와 로그인 안내를 표시하고 로컬 편집기를 열지 않는다', () => {
+  const html = renderStart({job: {id: 3, company: '기업', title: '개발자 채용'}, token: '', user: null})
+  assert.match(html, /기업 · 개발자 채용/)
+  assert.match(html, /로그인하면 선택한 공고/)
+  assert.doesNotMatch(html, /textarea|초안 저장/)
+})
+
+test('인증 확인 중과 서버 초안 생성 중 상태를 구분한다', () => {
+  const props = {job: {id: 3, company: '기업', title: '공고'}, token: 'token'}
+  assert.match(renderStart({...props, user: null}), /로그인 정보를 확인/)
+  assert.match(renderStart({...props, user: {id: 1}}), /자기소개서를 준비/)
+})
+
+test('작성 시작 전 인증 확인의 서버 장애는 재시도로 안내한다', () => {
+  const html = renderStart({job: {id: 3, company: '기업', title: '공고'}, token: 'token', user: null,
+    sessionError: {status: 500, message: '서버 연결 실패'}})
+  assert.match(html, /role="alert"/)
+  assert.match(html, /서버 연결 실패/)
+  assert.match(html, /다시 시도/)
+  assert.doesNotMatch(html, /textarea|초안 저장/)
 })
