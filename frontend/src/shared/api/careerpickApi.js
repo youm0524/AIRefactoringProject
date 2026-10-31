@@ -32,6 +32,23 @@ export const getCoverLetters = (token, page = 0, size = 20, {signal} = {}) =>
     headers: {Authorization: `Bearer ${token}`}, signal
   }).then(parseJson)
 
+export const createCoverLetter = (jobId, token, {signal} = {}) =>
+  fetch(`${API_URL}/cover-letters`, {
+    method: 'POST', headers: {'Content-Type': 'application/json', Authorization: `Bearer ${token}`},
+    body: JSON.stringify({jobId}), signal
+  }).then(parseJson)
+
+export const getCoverLetter = (coverLetterId, token, {signal} = {}) =>
+  fetch(`${API_URL}/cover-letters/${encodeURIComponent(coverLetterId)}`, {
+    headers: {Authorization: `Bearer ${token}`}, signal
+  }).then(parseJson)
+
+export const updateCoverLetter = (coverLetterId, items, token, {signal} = {}) =>
+  fetch(`${API_URL}/cover-letters/${encodeURIComponent(coverLetterId)}`, {
+    method: 'PUT', headers: {'Content-Type': 'application/json', Authorization: `Bearer ${token}`},
+    body: JSON.stringify({items}), signal
+  }).then(parseJson)
+
 export const deleteCoverLetter = (coverLetterId, token, {signal} = {}) =>
   fetch(`${API_URL}/cover-letters/${encodeURIComponent(coverLetterId)}`, {
     method: 'DELETE', headers: {Authorization: `Bearer ${token}`}, signal
