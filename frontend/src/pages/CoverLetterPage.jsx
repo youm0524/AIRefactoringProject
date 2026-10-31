@@ -1,10 +1,113 @@
-import { useState } from 'react'
+import {useEffect, useState} from 'react'
+import {getCoverLetter} from '../shared/api/careerpickApi.js'
 
-export default function CoverLetterPage({job, onBack, onNotice}) {
-  const key = `careerpick-cover-letter-${job?.id || 'general'}`
-  const [draft, setDraft] = useState(() => JSON.parse(localStorage.getItem(key) || '{"motivation":"","experience":""}'))
-  const update = (field, value) => setDraft(current => ({...current, [field]: value}))
-  const save = () => {localStorage.setItem(key, JSON.stringify(draft)); onNotice('자기소개서 초안을 저장했습니다')}
+const savedAtFormat = new Intl.DateTimeFormat('ko-KR', {
+  timeZone: 'Asia/Seoul', dateStyle: 'medium', timeStyle: 'short'
+})
 
-  return <main className="cover-page"><div className="cover-head"><button onClick={onBack}>← 채용공고</button><span className="section-kicker">COVER LETTER</span><h1>자기소개서 작성</h1><p>{job ? <><b>{job.company}</b> · {job.title}</> : '지원할 공고를 선택하거나 자유롭게 초안을 작성해 보세요.'}</p></div><section className="cover-editor"><div className="cover-progress"><strong>자기소개서</strong><span>문항 2개</span></div><label><b>1. 지원 동기와 입사 후 이루고 싶은 목표를 작성해 주세요.</b><span>{draft.motivation.length} / 700</span><textarea maxLength="700" value={draft.motivation} onChange={event => update('motivation', event.target.value)} placeholder="기업과 직무에 관심을 갖게 된 계기부터 작성해 보세요."/></label><label><b>2. 직무와 관련해 가장 몰입했던 경험을 작성해 주세요.</b><span>{draft.experience.length} / 700</span><textarea maxLength="700" value={draft.experience} onChange={event => update('experience', event.target.value)} placeholder="상황, 행동, 결과가 드러나도록 작성해 보세요."/></label><div className="cover-actions"><button className="modal-save" onClick={onBack}>나가기</button><button className="apply-button" onClick={save}>초안 저장</button></div></section></main>
+export function CoverLetterDetailContent({view, onRetry, onRequireLogin}) {
+  if (view.status === 'signed-out') {
+    return <div className="cover-list-state">
+      <p>로그인하면 자기소개서를 확인할 수 있습니다.</p>
+      <button className="login-button" onClick={onRequireLogin}>로그인</button>
+    </div>
+  }
+  if (view.status === 'checking' || view.status === 'loading') {
+    return <p role="status">
+      {view.status === 'checking' ? '로그인 정보를 확인하고 있습니다.' : '자기소개서를 불러오고 있습니다.'}
+    </p>
+  }
+  if (view.status === 'not-found') {
+    return <p role="alert">자기소개서를 찾을 수 없습니다. 목록에서 다시 선택해 주세요.</p>
+  }
+  if (view.status === 'error') {
+    return <div className="cover-list-state">
+      <p role="alert">
+        {view.error.message}
+      </p>
+      <button className="login-button" onClick={onRetry}>다시 시도</button>
+    </div>
+  }
+  const detail = view.detail
+  return <>
+    <p className="cover-detail-job">
+      {`${detail.company} · ${detail.jobTitle}`}
+    </p>
+    <p className="cover-detail-saved">
+      {'마지막 저장 '}
+      <time dateTime={detail.updatedAt}>
+        {savedAtFormat.format(new Date(detail.updatedAt))}
+      </time>
+    </p>
+    <section className="cover-editor" aria-label="자기소개서 문항과 저장된 답변">
+      <div className="cover-progress">
+        <strong>자기소개서</strong>
+        <span>
+          {`문항 ${detail.items.length}개`}
+        </span>
+      </div>
+      {detail.items.map((item, index) => <label key={item.id} htmlFor={`cover-item-${item.id}`}>
+        <b>
+          {`${index + 1}. ${item.questionText}`}
+        </b>
+        <span id={`cover-item-${item.id}-count`}>
+          {`${item.answer.length} / ${item.maxLength}`}
+        </span>
+        <textarea
+          id={`cover-item-${item.id}`}
+          value={item.answer}
+          maxLength={item.maxLength}
+          readOnly
+          aria-describedby={`cover-item-${item.id}-count`}
+        />
+      </label>)}
+    </section>
+  </>
+}
+
+export default function CoverLetterPage({coverLetterId, token, user, sessionError, onRetrySession,
+  onSessionExpired, onRequireLogin, onBack}) {
+  const [result, setResult] = useState(null)
+  const [attempt, setAttempt] = useState(0)
+  const userId = user?.id
+
+  useEffect(() => {
+    if (!coverLetterId || !token || !userId) return
+    const controller = new AbortController()
+    getCoverLetter(coverLetterId, token, {signal: controller.signal})
+      .then(detail => {
+        if (!controller.signal.aborted) setResult({coverLetterId, token, userId, attempt, status: 'ready', detail})
+      })
+      .catch(error => {
+        if (controller.signal.aborted) return
+        if (error.status === 401) onSessionExpired(token)
+        else setResult({coverLetterId, token, userId, attempt, status: error.status === 404 ? 'not-found' : 'error', error})
+      })
+    return () => controller.abort()
+  }, [coverLetterId, token, userId, attempt, onSessionExpired])
+
+  let view
+  if (!token) view = {status: 'signed-out'}
+  else if (!userId && sessionError) view = {status: 'error', error: sessionError}
+  else if (!userId) view = {status: 'checking'}
+  else if (!coverLetterId) view = {status: 'not-found'}
+  else if (result?.coverLetterId !== coverLetterId || result?.token !== token || result?.userId !== userId || result?.attempt !== attempt) view = {status: 'loading'}
+  else view = result
+
+  return (
+    <main className="cover-page" data-cover-letter-id={coverLetterId}>
+      <div className="cover-head">
+        <button onClick={onBack}>← 목록으로</button>
+        <span className="section-kicker">COVER LETTER</span>
+        <h1>자기소개서</h1>
+      </div>
+      <div className="cover-detail-content" aria-busy={view.status === 'checking' || view.status === 'loading'}>
+        <CoverLetterDetailContent
+          view={view}
+          onRequireLogin={onRequireLogin}
+          onRetry={!userId && sessionError ? onRetrySession : () => setAttempt(current => current + 1)}
+        />
+      </div>
+    </main>
+  )
 }

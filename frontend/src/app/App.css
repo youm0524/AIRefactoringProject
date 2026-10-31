@@ -22,3 +22,4 @@ footer{padding:45px max(28px,calc((100% - 1160px)/2));background:#f7f8f7;display
 .cover-list-pagination button {padding: 6px 12px; font-size: 12px; border-radius: 7px;}
 .cover-letter-actions{display:flex;align-items:center;gap:10px;flex-shrink:0}.cover-letter-delete{background:#fff;color:#b33232;border:1px solid #e6bcbc;padding:10px 14px;border-radius:10px;font-size:13px;font-weight:600}.cover-letter-actions button:disabled{opacity:.5;cursor:default}.cover-list-delete-error{margin-bottom:16px;padding:18px;border:1px solid #e6bcbc;border-radius:12px;background:#fff}.cover-list-delete-error p{color:#b33232;line-height:1.6;margin:0 0 12px}
 @media(max-width:620px){.cover-letter-actions{flex-wrap:wrap}}
+.cover-detail-content{margin-top:24px}.cover-detail-job{color:var(--muted);line-height:1.6}.cover-detail-saved{color:var(--muted);font-size:12px}.cover-editor textarea[readonly]{background:var(--soft)}

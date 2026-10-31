@@ -6,6 +6,7 @@ import { createSessionRequestScope } from '../features/auth/sessionRequestScope.
 import JobChat from '../features/chat/JobChat.jsx'
 import JobDetail from '../features/jobs/JobDetail.jsx'
 import CoverLetterStartPage from '../pages/CoverLetterStartPage.jsx'
+import CoverLetterPage from '../pages/CoverLetterPage.jsx'
 import CoverLetterListPage from '../pages/CoverLetterListPage.jsx'
 import JobsPage from '../pages/JobsPage.jsx'
 
@@ -184,13 +185,19 @@ export default function App() {
           />
         )
         : page === 'cover-detail'
-          ? <main className="cover-page" data-cover-letter-id={selectedCoverLetterId}>
-            <div className="cover-head">
-              <button onClick={openCoverList}>← 목록으로</button>
-              <span className="section-kicker">COVER LETTER</span>
-              <h1>자기소개서 작성</h1>
-            </div>
-          </main>
+          ? (
+            <CoverLetterPage
+              key={`${selectedCoverLetterId}:${token}:${user?.id || 'pending'}`}
+              coverLetterId={selectedCoverLetterId}
+              token={token}
+              user={user}
+              sessionError={sessionError?.token === token ? sessionError.error : null}
+              onRetrySession={() => {setSessionError(null); setSessionAttempt(current => current + 1)}}
+              onSessionExpired={expireSession}
+              onRequireLogin={() => setLoginOpen(true)}
+              onBack={openCoverList}
+            />
+          )
           : targetJob && (
             <CoverLetterStartPage
               key={`${targetJob.id}:${token}:${user?.id || 'pending'}`}

@@ -14,6 +14,9 @@ const output = await build({
       import {renderToStaticMarkup} from 'react-dom/server';
       import {CoverLetterListContent} from './src/pages/CoverLetterListPage.jsx';
       import CoverLetterStartPage from './src/pages/CoverLetterStartPage.jsx';
+      import CoverLetterPage, {CoverLetterDetailContent} from './src/pages/CoverLetterPage.jsx';
+      export const renderDetail = view => renderToStaticMarkup(React.createElement(CoverLetterDetailContent, {view}));
+      export const renderDetailPage = props => renderToStaticMarkup(React.createElement(CoverLetterPage, props));
       export const renderStart = props => renderToStaticMarkup(React.createElement(CoverLetterStartPage, props));
       export const render = (view, options = {}) => renderToStaticMarkup(React.createElement(CoverLetterListContent, {view, ...options}));
       export const pageAction = (view, label) => {
@@ -46,7 +49,7 @@ const output = await build({
 const directory = await mkdtemp(join(tmpdir(), 'careerpick-list-'))
 const filename = join(directory, 'view.cjs')
 await writeFile(filename, output.outputFiles[0].text)
-const {render, selectFirst, pageAction, deleteFirst, renderStart} = createRequire(import.meta.url)(filename)
+const {render, selectFirst, pageAction, deleteFirst, renderStart, renderDetail, renderDetailPage} = createRequire(import.meta.url)(filename)
 after(() => rm(directory, {recursive: true, force: true}))
 
 test('로그인 전·로그인 확인 중·조회 중 상태를 구분한다', () => {
@@ -130,4 +133,50 @@ test('작성 시작 전 인증 확인의 서버 장애는 재시도로 안내한
   assert.match(html, /서버 연결 실패/)
   assert.match(html, /다시 시도/)
   assert.doesNotMatch(html, /textarea|초안 저장/)
+})
+
+
+test('상세의 로그인 전·로그인 확인 중·로딩 상태에서는 답변을 표시하지 않는다', () => {
+  assert.match(renderDetail({status: 'signed-out'}), /로그인하면 자기소개서/)
+  assert.match(renderDetail({status: 'checking'}), /로그인 정보를 확인/)
+  assert.match(renderDetail({status: 'loading'}), /자기소개서를 불러오고/)
+  assert.doesNotMatch(renderDetail({status: 'loading'}), /textarea/)
+  assert.match(renderDetailPage({coverLetterId: 17, token: 'token', user: {id: 1}}), /자기소개서를 불러오고/)
+})
+
+test('상세 대상 없음과 서버 오류를 구분하고 서버 오류에 재시도를 제공한다', () => {
+  const missing = renderDetail({status: 'not-found'})
+  assert.match(missing, /role="alert"/)
+  assert.match(missing, /목록에서 다시 선택/)
+  assert.doesNotMatch(missing, /textarea|다시 시도/)
+  const failed = renderDetail({status: 'error', error: {message: '서버 연결 실패'}})
+  assert.match(failed, /서버 연결 실패/)
+  assert.match(failed, /다시 시도/)
+  assert.doesNotMatch(failed, /textarea/)
+})
+
+test('서버의 질문·답변·글자 제한을 응답 순서로 읽기 전용 표시한다', () => {
+  const html = renderDetail({status: 'ready', detail: {company: '기업 <A>', jobTitle: '개발자 채용', updatedAt: '2026-10-31T00:00:00Z',
+    items: [
+      {id: 500, questionText: '서버에서 제공한 첫 질문', maxLength: 120, answer: '😀'},
+      {id: 400, questionText: '서버에서 제공한 다음 질문', maxLength: 700, answer: '  저장한 답변\n'},
+      {id: 600, questionText: '빈 답변 질문', maxLength: 200, answer: ''}
+    ]}})
+  assert.match(html, /기업 &lt;A&gt; · 개발자 채용/)
+  assert.match(html, /문항 3개/)
+  assert.ok(html.indexOf('첫 질문') < html.indexOf('다음 질문'))
+  assert.match(html, /2 \/ 120/)
+  assert.match(html, /0 \/ 200/)
+  assert.match(html, /maxLength="120"/i)
+  assert.match(html, /id="cover-item-500"/)
+  assert.match(html, /  저장한 답변\n/)
+  assert.equal((html.match(/readOnly=""/gi) || []).length, 3)
+  assert.doesNotMatch(html, /초안 저장/)
+})
+
+test('상세의 마지막 저장 시각을 한국 시간으로 표시하고 목록 복귀를 제공한다', () => {
+  const html = renderDetail({status: 'ready', detail: {company: '기업', jobTitle: '공고', updatedAt: '2026-10-31T00:00:00Z', items: []}})
+  assert.match(html, /dateTime="2026-10-31T00:00:00Z"/i)
+  assert.match(html, /9:00/)
+  assert.match(renderDetailPage({coverLetterId: 17, token: 'token', user: {id: 1}}), /목록으로/)
 })
