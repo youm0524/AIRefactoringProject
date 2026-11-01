@@ -24,6 +24,14 @@ export default function App() {
   }, [search, category])
 
   const coverStartJob = useRef(null)
+  const coverLeaveGuard = useRef(null)
+  const registerCoverLeaveGuard = useCallback(guard => {
+    coverLeaveGuard.current = guard
+    return () => {
+      if (coverLeaveGuard.current === guard) coverLeaveGuard.current = null
+    }
+  }, [])
+  const canLeaveCover = () => !coverLeaveGuard.current || coverLeaveGuard.current()
   const tokenRef = useRef(token)
   const verification = useRef(createSessionRequestScope())
   const loginRequest = useRef(createSessionRequestScope())
@@ -104,12 +112,14 @@ export default function App() {
     }
   }
   const signOut = () => {
+    if (!canLeaveCover()) return
     loginRequest.current.cancel()
     clearSession()
     setLoginOpen(false)
     showNotice('로그아웃했습니다')
   }
   const openCoverList = () => {
+    if (!canLeaveCover()) return
     coverStartJob.current = null
     setSelectedCoverLetterId(null)
     setTargetJob(null)
@@ -118,11 +128,13 @@ export default function App() {
     window.scrollTo({top:0, behavior:'smooth'})
   }
   const openCoverDetail = coverLetterId => {
+    if (!canLeaveCover()) return
     setSelectedCoverLetterId(coverLetterId)
     setPage('cover-detail')
     window.scrollTo({top:0, behavior:'smooth'})
   }
   const openCover = job => {
+    if (!canLeaveCover()) return
     if (coverStartJob.current) return
     coverStartJob.current = job
     setSelectedCoverLetterId(null)
@@ -140,11 +152,14 @@ export default function App() {
     setPage('cover-detail')
   }, [])
   const openJobs = () => {
+    if (!canLeaveCover()) return false
     coverStartJob.current = null
     setTargetJob(null)
     setPage('jobs')
+    return true
   }
   const openCommunity = job => {
+    if (!canLeaveCover()) return
     setSelectedJob(null)
     setChatJob(job)
   }
@@ -159,7 +174,7 @@ export default function App() {
       <nav>
         <button className={page === 'jobs' ? 'active' : ''} onClick={openJobs}>채용공고</button>
         <button className={page.startsWith('cover') ? 'active' : ''} onClick={openCoverList}>자기소개서</button>
-        <button onClick={() => {openJobs(); setTimeout(() => document.querySelector('.community')?.scrollIntoView({behavior:'smooth'}), 0)}}>커뮤니티</button>
+        <button onClick={() => {if (openJobs()) setTimeout(() => document.querySelector('.community')?.scrollIntoView({behavior:'smooth'}), 0)}}>커뮤니티</button>
       </nav>
       <div className="header-actions">
         <button className="login-button" onClick={user ? signOut : () => setLoginOpen(true)}>
@@ -196,6 +211,7 @@ export default function App() {
               onSessionExpired={expireSession}
               onRequireLogin={() => setLoginOpen(true)}
               onBack={openCoverList}
+              onRegisterLeaveGuard={registerCoverLeaveGuard}
             />
           )
           : targetJob && (

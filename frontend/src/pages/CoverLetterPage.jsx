@@ -1,6 +1,7 @@
-import {useEffect, useRef, useState} from 'react'
+import {useEffect, useLayoutEffect, useRef, useState} from 'react'
 import {getCoverLetter, updateCoverLetter} from '../shared/api/careerpickApi.js'
-import {getCoverLetterAnswers, buildCoverLetterAnswerItems} from '../features/coverLetters/answers.js'
+import {getCoverLetterAnswers, buildCoverLetterAnswerItems, hasUnsavedCoverLetterAnswers} from '../features/coverLetters/answers.js'
+import {canLeaveCoverLetter} from '../features/coverLetters/navigation.js'
 
 const savedAtFormat = new Intl.DateTimeFormat('ko-KR', {
   timeZone: 'Asia/Seoul', dateStyle: 'medium', timeStyle: 'short'
@@ -69,6 +70,7 @@ export function CoverLetterDetailContent({view, onRetry, onRequireLogin, answers
         />
       </label>)}
       {saveState?.status === 'success' && <p role="status">자기소개서를 저장했습니다.</p>}
+      {!isSaving && hasUnsavedCoverLetterAnswers(detail, answers) && <p role="status">저장하지 않은 변경사항이 있습니다.</p>}
       {saveState?.status === 'error' && <div className="cover-detail-save-error">
         <p role="alert">
           {saveState.error.status === 401 ? '로그인이 만료되었습니다. 다시 로그인해 주세요.' : saveState.error.message}
@@ -85,7 +87,7 @@ export function CoverLetterDetailContent({view, onRetry, onRequireLogin, answers
 }
 
 export default function CoverLetterPage({coverLetterId, token, user, sessionError, onRetrySession,
-  onSessionExpired, onRequireLogin, onBack}) {
+  onSessionExpired, onRequireLogin, onBack, onRegisterLeaveGuard}) {
   const [result, setResult] = useState(null)
   const [attempt, setAttempt] = useState(0)
   const [saveState, setSaveState] = useState(null)
@@ -119,6 +121,12 @@ export default function CoverLetterPage({coverLetterId, token, user, sessionErro
   else if (!coverLetterId) view = {status: 'not-found'}
   else if (result?.coverLetterId !== coverLetterId || result?.token !== token || result?.userId !== userId || result?.attempt !== attempt) view = {status: 'loading'}
   else view = result
+
+  useLayoutEffect(() => onRegisterLeaveGuard?.(() => canLeaveCoverLetter({
+    detail: view.status === 'ready' ? view.detail : null,
+    answers: view.status === 'ready' ? view.answers : null,
+    isSaving: Boolean(activeSave.current)
+  })), [onRegisterLeaveGuard, view])
 
   const currentSave = saveState?.coverLetterId === coverLetterId && saveState?.token === token && saveState?.userId === userId ? saveState : null
   const saveAnswers = async () => {

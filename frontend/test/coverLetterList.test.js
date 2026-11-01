@@ -204,3 +204,10 @@ test('저장 실패는 입력·이전 저장 시각을 유지한 화면과 재�
   assert.doesNotMatch(html, /자기소개서를 저장했습니다/)
   assert.match(renderDetail(view, {saveState: {status: 'success'}}), /자기소개서를 저장했습니다/)
 })
+
+test('미저장 안내는 실제 변경이 있을 때만 표시한다', () => {
+  const view = {status: 'ready', detail: {company: '기업', jobTitle: '공고', updatedAt: '2026-10-31T00:00:00Z',
+    items: [{id: 101, questionText: '질문', maxLength: 700, answer: '저장된 답변'}]}}
+  assert.match(renderDetail(view, {answers: {101: '변경한 답변'}}), /저장하지 않은 변경사항이 있습니다/)
+  assert.doesNotMatch(renderDetail(view, {answers: {101: '저장된 답변'}}), /저장하지 않은 변경사항이 있습니다/)
+})
