@@ -2,7 +2,8 @@
 
 ## 1. 문서 정보
 
-- 상태: 승인 대기
+- 상태: 승인됨
+- 승인일: 2026-11-02
 - 작성일: 2026-10-29
 - 기준 요구사항: [community-requirements.md](./community-requirements.md)
 - 참고 기록: [community-technical-decisions.md](./community-technical-decisions.md)
