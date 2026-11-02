@@ -14,6 +14,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.server.ResponseStatusException;
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
@@ -45,6 +46,25 @@ class CommunityServiceTest {
             .isInstanceOfSatisfying(ResponseStatusException.class,
                 exception -> assertThat(exception.getStatusCode().value()).isEqualTo(404));
         verifyNoInteractions(members);
+    }
+
+    @Test void leavesAnExistingRoom() {
+        CommunityRoomMember membership = member(room(), "2026-10-01T00:00:00Z");
+        when(authService.requireUserEntity("Bearer token")).thenReturn(user);
+        when(members.findForUpdate(1, 20)).thenReturn(Optional.of(membership));
+
+        service.leave(20, "Bearer token");
+
+        verify(members).delete(membership);
+    }
+
+    @Test void leavingAnUnjoinedRoomIsIdempotent() {
+        when(authService.requireUserEntity("Bearer token")).thenReturn(user);
+        when(members.findForUpdate(1, 999)).thenReturn(Optional.empty());
+
+        service.leave(999, "Bearer token");
+
+        verify(members, never()).delete(any());
     }
 
     @Test void returnsLatestMessagesInOldestFirstOrder() {

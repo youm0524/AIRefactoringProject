@@ -2,7 +2,7 @@
 
 ## 현재 위치
 
-- 완료: T-01 기업 채팅방 기반, [T-02 공고 참여 API](./community-tasks-02.md), [T-03 메시지 이관과 조회 API](./community-tasks-03.md)
+- 완료: T-01 기업 채팅방 기반, [T-02 공고 참여 API](./community-tasks-02.md), [T-03 메시지 이관과 조회 API](./community-tasks-03.md), [T-04 방 나가기와 재참여](./community-tasks-04.md)
 - 진행 중: 없음
 - 다음 실행: 상세 Task 작성과 사용자 승인 필요
 
@@ -13,7 +13,7 @@
 | T-01 | 기업별 채팅방 ID를 만들고 공고와 연결 | 없음 | DONE | [보기](./community-tasks-01.md) |
 | T-02 | 공고를 통해 기업 방에 중복 없이 참여 | T-01 | DONE | [보기](./community-tasks-02.md) |
 | T-03 | 메시지를 기업 방으로 이관하고 참여자 조회 API 제공 | T-02 | DONE | [보기](./community-tasks-03.md) |
-| T-04 | 방 나가기와 재참여를 안전하게 처리 | T-02 | TODO | 실행 전 작성 |
+| T-04 | 방 나가기와 재참여를 안전하게 처리 | T-02, T-03 | DONE | [보기](./community-tasks-04.md) |
 | T-05 | WebSocket 인증과 메시지 저장·전송 | T-03, T-04 | TODO | 실행 전 작성 |
 | T-06 | Redis Pub/Sub으로 여러 서버에 메시지 중계 | T-05 | TODO | 실행 전 작성 |
 | T-07 | 로그인 후 참여·커뮤니티 이동 흐름 구현 | T-02, T-03 | TODO | 실행 전 작성 |

@@ -45,6 +45,12 @@ public class CommunityService {
         return new JoinCommunityResponse(new CommunityRoomView(room.id(), room.companyName()));
     }
 
+    @Transactional
+    public void leave(long roomId, String authorization) {
+        User user = authService.requireUserEntity(authorization);
+        members.findForUpdate(user.id(), roomId).ifPresent(members::delete);
+    }
+
     @Transactional(readOnly = true)
     public List<CommunityRoomSummary> rooms(String authorization) {
         User user = authService.requireUserEntity(authorization);
