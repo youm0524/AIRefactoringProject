@@ -31,7 +31,7 @@
 
 - 로그인 인증과 세션 검증
 - 채용공고 조회, 검색, 분야별 필터링
-- 공고별 채팅 조회와 메시지 저장
+- 기업별 커뮤니티 참여, 참여 방 목록과 최신 메시지 조회
 - 입력 검증, 트랜잭션과 데이터 정합성
 - MySQL 영속화와 Flyway 스키마 이력 관리
 
@@ -50,17 +50,17 @@ com.careerpick
 │   └── OpenApiConfig.java
 ├── controller
 │   ├── AuthController.java
-│   ├── ChatController.java
 │   ├── CommunityController.java
 │   └── JobController.java
 ├── dto
 │   ├── ChatMessage.java
+│   ├── CommunityRoomSummary.java
 │   ├── CommunityRoomView.java
 │   ├── JobResponse.java
 │   ├── JoinCommunityResponse.java
+│   ├── LastMessageView.java
 │   ├── LoginRequest.java
 │   ├── LoginResponse.java
-│   ├── SendMessageRequest.java
 │   └── UserView.java
 ├── entity
 │   ├── ChatMessageEntity.java
@@ -76,7 +76,6 @@ com.careerpick
 │   └── UserRepository.java
 └── service
     ├── AuthService.java
-    ├── ChatService.java
     ├── CommunityService.java
     └── JobService.java
 ```
@@ -112,7 +111,7 @@ MySQL에는 다음 테이블을 저장한다.
 - `community_room_members`: 사용자와 기업 채팅방의 참여 관계
 - `jobs`: 채용공고와 필수 기업 채팅방 연결
 - `job_tags`: 공고별 태그
-- `chat_messages`: 공고별 채팅 메시지
+- `chat_messages`: 기업 채팅방 메시지와 기존 출처 공고
 
 Redis에는 `auth:session:{token}` 형식으로 사용자 ID를 저장하며 TTL은 24시간이다.
 
@@ -124,7 +123,8 @@ Hibernate는 `ddl-auto=validate`로 매핑만 검증한다. 테이블 생성과 
 src/main/resources/db/migration/
 ├── V1__create_core_tables.sql
 ├── V2__create_community_rooms.sql
-└── V3__create_community_room_members.sql
+├── V3__create_community_room_members.sql
+└── V4__migrate_messages_to_community_rooms.sql
 ```
 
 적용된 마이그레이션 파일은 수정하지 않는다. 변경이 필요하면 `V2__설명.sql`, `V3__설명.sql`처럼 새 파일을 추가한다.

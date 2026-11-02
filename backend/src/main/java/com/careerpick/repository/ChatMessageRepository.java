@@ -5,5 +5,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.List;
 
 public interface ChatMessageRepository extends JpaRepository<ChatMessageEntity, Long> {
-    List<ChatMessageEntity> findByJobIdOrderByIdAsc(long jobId);
+    List<ChatMessageEntity> findTop50ByRoomIdOrderByCreatedAtDescIdDesc(long roomId);
+    List<ChatMessageEntity> findTop1ByRoomIdOrderByCreatedAtDescIdDesc(long roomId);
 }

@@ -22,8 +22,8 @@
 | 기업 | `company` | 채용공고를 게시한 주체. 현재는 별도 엔티티가 아니라 채용공고의 속성이다. |
 | 직무 분야 | `category` | 공고 검색과 분류에 사용하는 대표 분야. 현재 값은 전체, 개발, 마케팅, 디자인, 경영지원이다. `전체`는 조회 조건이며 저장값이 아니다. |
 | 공고 태그 | `tags`, `job_tags` | 기술, 역할 등 공고의 보조 검색어. 직무 분야와 혼용하지 않는다. |
-| 지원자 커뮤니티 | 공고별 메시지 API | 하나의 채용공고에 속한 대화 공간. 현재 별도 커뮤니티 엔티티는 없으며 `jobId`로 범위를 구분한다. |
-| 채팅 메시지 | `ChatMessage`, `chat_messages`, `messageId` | 지원자 커뮤니티에 작성된 한 건의 메시지. 반드시 하나의 채용공고에 속한다. |
+| 지원자 커뮤니티 | `CommunityRoom`, `community_rooms`, `roomId` | 같은 기업의 모든 채용공고가 공유하는 대화 공간. 참여 사용자만 조회하고 대화할 수 있다. |
+| 채팅 메시지 | `ChatMessage`, `chat_messages`, `messageId` | 기업 채팅방에 작성된 한 건의 메시지. 기존 메시지는 출처 공고를 `sourceJobId`로 보존한다. |
 | 자기소개서 초안 | `CoverLetterPage`, `careerpick-cover-letter-{jobId}` | 사용자가 작성 중인 자기소개서 내용. 현재 브라우저에만 저장하며 제출된 지원서나 서버 데이터로 간주하지 않는다. |
 | 로그인 세션 | `auth:session:{token}` | 로그인 사용자를 식별하는 Redis의 임시 데이터. opaque token과 24시간 TTL을 사용한다. |
 

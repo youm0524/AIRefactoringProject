@@ -42,8 +42,8 @@ public class DataInitializer implements ApplicationRunner {
         if (jobs.count() == 0) jobs.saveAll(sampleJobs());
         if (messages.count() == 0) {
             jobs.findAllByOrderByIdAsc().forEach(job -> messages.saveAll(List.of(
-                new ChatMessageEntity(job, null, "익명지원자", job.company() + " 지원하시는 분들 계신가요?"),
-                new ChatMessageEntity(job, null, "취준메이트", "네! 전형 정보 같이 나눠요 🙌")
+                new ChatMessageEntity(job.communityRoom(), job, null, "익명지원자", job.company() + " 지원하시는 분들 계신가요?"),
+                new ChatMessageEntity(job.communityRoom(), job, null, "취준메이트", "네! 전형 정보 같이 나눠요 🙌")
             )));
         }
     }

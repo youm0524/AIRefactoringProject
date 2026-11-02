@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import java.util.List;
 
 public interface CommunityRoomMemberRepository extends JpaRepository<CommunityRoomMember, Long> {
     @Modifying
@@ -14,4 +15,7 @@ public interface CommunityRoomMemberRepository extends JpaRepository<CommunityRo
         ON DUPLICATE KEY UPDATE joined_at = joined_at
         """, nativeQuery = true)
     void join(@Param("userId") long userId, @Param("roomId") long roomId);
+
+    boolean existsByUserIdAndRoomId(long userId, long roomId);
+    List<CommunityRoomMember> findByUserId(long userId);
 }
