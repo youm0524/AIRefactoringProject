@@ -1,3 +1,3 @@
 package com.careerpick.dto;
 
-public record UserView(String name, String email) {}
+public record UserView(Long id, String name, String email) {}

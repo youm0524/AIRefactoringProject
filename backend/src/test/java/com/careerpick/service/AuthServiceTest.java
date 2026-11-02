@@ -33,6 +33,8 @@ class AuthServiceTest {
 
         LoginResponse login = service.login(new LoginRequest("demo@careerpick.kr", "career1234"));
 
+        assertThat(login.user().id()).isEqualTo(1L);
+        assertThat(service.requireUser("Bearer " + login.token()).id()).isEqualTo(1L);
         assertThat(service.requireUser("Bearer " + login.token()).email()).isEqualTo("demo@careerpick.kr");
         verify(values).set(startsWith("auth:session:"), eq("1"), any(Duration.class));
     }
@@ -40,6 +42,12 @@ class AuthServiceTest {
     @Test void rejectsWrongPassword() {
         when(users.findByEmailIgnoreCase("demo@careerpick.kr")).thenReturn(Optional.of(user));
         assertThatThrownBy(() -> service.login(new LoginRequest("demo@careerpick.kr", "wrongpass"))).isInstanceOf(ResponseStatusException.class);
+    }
+
+    @Test void rejectsMissingAndExpiredSession() {
+        when(redis.opsForValue()).thenReturn(values);
+        assertThatThrownBy(() -> service.requireUser(null)).isInstanceOf(ResponseStatusException.class);
+        assertThatThrownBy(() -> service.requireUser("Bearer expired")).isInstanceOf(ResponseStatusException.class);
     }
 
     private User testUser() {

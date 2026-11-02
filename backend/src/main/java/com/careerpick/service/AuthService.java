@@ -53,5 +53,5 @@ public class AuthService {
         }
     }
 
-    private UserView toView(User user) { return new UserView(user.name(), user.email()); }
+    private UserView toView(User user) { return new UserView(user.id(), user.name(), user.email()); }
 }
