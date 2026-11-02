@@ -18,7 +18,7 @@
 | Styling | CSS | 단일 `App.css` |
 | HTTP | Browser Fetch API | 별도 HTTP 라이브러리 없음 |
 | State | React `useState`, `useEffect` | 별도 전역 상태 라이브러리 없음 |
-| Browser storage | `localStorage` | 토큰, 자기소개서 초안 |
+| Browser storage | `localStorage` | 로그인 토큰, 이전 로컬 초안 원본 보존 |
 | Test | Node.js `node:test` | `node:assert` 사용 |
 | Dev server | Node.js HTTP server | `localhost:5173` |
 
@@ -32,7 +32,8 @@
 - 로그인 입력과 로그인 상태 표시
 - 공고별 지원자 채팅 UI
 - 서버 자기소개서 목록·페이지 조회와 확인 후 삭제
-- 공고에서 서버 자기소개서 생성·기존 초안 열기(상세 편집·저장 화면은 Step 8에서 진행 중)
+- 공고에서 서버 자기소개서 생성·기존 초안 열기, 상세 조회·답변 편집·저장
+- 미저장 이탈 확인과 같은 사용자 재로그인 시 편집값 복구
 - 화면 전환과 모달 상태 관리
 - 반응형 레이아웃, 키보드 조작과 접근성 속성
 - API 연결 실패 시 MVP 데모 데이터 표시
@@ -71,6 +72,9 @@ frontend/
 │   │   │   ├── LoginModal.jsx
 │   │   │   └── sessionRequestScope.js
 │   │   ├── coverLetters/
+│   │   │   ├── answers.js
+│   │   │   ├── navigation.js
+│   │   │   ├── sessionRecovery.js
 │   │   │   ├── pagination.js
 │   │   │   └── deleteCoverLetterWithConfirmation.js
 │   │   ├── chat/JobChat.jsx
@@ -85,6 +89,9 @@ frontend/
     ├── coverLetterList.test.js
     ├── coverLetterDeletion.test.js
     ├── coverLetterPagination.test.js
+    ├── coverLetterAnswers.test.js
+    ├── coverLetterNavigation.test.js
+    ├── coverLetterSessionRecovery.test.js
     ├── sessionRequestScope.test.js
     └── filter.test.js
 ```
@@ -102,9 +109,10 @@ frontend/
 
 ## 5. 상태와 저장 기준
 
-- 서버 데이터: 채용공고, 사용자 정보, 공고별 채팅과 자기소개서 목록
+- 서버 데이터: 채용공고, 사용자 정보, 공고별 채팅, 자기소개서 목록·상세·저장 답변
 - React 상태: 현재 화면, 검색어, 분야, 모달, 선택 공고·초안 ID, 목록 페이지·응답 상태와 알림
-- `localStorage`: 로그인 토큰, 공고별 자기소개서 초안
+- 편집·복구 메모리: 현재 답변과 만료 시 초안 ID·사용자 ID·답변. 새로고침·브라우저 닫기 시 유지하지 않는다.
+- `localStorage`: 로그인 토큰. 이전 공고별 로컬 초안은 원본을 보존하며 현재 편집기에서 읽기·쓰기·자동 이전하지 않는다.
 - 데모 데이터: 백엔드 연결 실패 시 공고 목록과 채팅의 제한된 대체 화면
 
 브라우저 저장 데이터는 편의 기능일 뿐 신뢰 가능한 서버 데이터로 취급하지 않는다. 로그아웃 시 로그인 토큰과 사용자 상태를 함께 제거한다.
@@ -134,7 +142,7 @@ frontend/
 - 채팅 전송 실패 시 작성 중인 입력을 임의로 제거하지 않는다.
 - API 응답 필드는 백엔드 DTO와 동일하게 유지한다.
 - 오류는 `status`, `code`, `message`를 보존하며 삭제 성공 `204`에서는 JSON 파싱을 하지 않는다.
-- 로그인·내 정보·목록·삭제는 취소 신호를 지원한다. 세션 교체·화면 이탈 후 늦은 응답을 적용하지 않는다.
+- 로그인·내 정보·자기소개서 생성·목록·상세·저장·삭제는 취소 신호를 지원한다. 세션 교체·화면 이탈 후 늦은 응답을 적용하지 않는다.
 
 현재 API 주소는 `http://localhost:8080/api`로 고정되어 있다. 배포 전에는 빌드 환경변수로 분리해야 한다.
 
@@ -159,7 +167,7 @@ npm install
 npm run dev
 ```
 
-개발 서버는 `http://localhost:5173`에서 실행된다. 파일 변경은 자동으로 다시 빌드되지만 HMR과 브라우저 자동 새로고침은 제공하지 않는다.
+개발 서버는 `http://localhost:5173`에서 실행된다. 파일 변경은 자동으로 다시 빌드되지만 HMR과 브라우저 자동 새로고침은 제공하지 않는다. 변경 후 테스트를 시작하기 전에 페이지를 새로고침해 최신 코드를 불러온다. 세션 만료 복구 테스트 중에는 새로고침하지 않는다.
 
 ```bash
 npm test
@@ -187,3 +195,12 @@ npm run build
 - 공고에서 작성 시작 시 서버 POST로 초안을 생성하거나 기존 초안을 열고, 비로그인 상태면 로그인 후 선택한 공고로 재개한다. 생성 실패는 오류·재시도로 처리한다. 기존 로컬 편집기 진입은 제거했으며 로컬 원본은 보존·자동 이전하지 않는다.
 - 목록·삭제 테스트용 서버 초안은 Swagger의 POST로 생성할 수 있다. 삭제 검증에는 삭제해도 되는 테스트 초안을 사용한다.
 - 2026-10-31 기준 테스트 26개·빌드 통과. 에이전트 브라우저는 연결되지 않았지만, 이후 사용자가 브라우저에서 목록·페이지 이동·삭제·로그인 정상 동작을 확인했다. 전체 예외·모바일 회귀는 후속 검증에서 이어간다.
+
+
+## 11. 상세 작성 화면 검증 (Issue #7 Step 8)
+
+- 2026-11-02: `npm test` 52개, `npm run build`, Step 8 변경 소스 ESLint 통과.
+- API 모의 응답·순수 로직·서버 렌더링 테스트로 생성·상세·저장 요청, 상태 표시, 답변 검증, 미저장 판정, 사용자·초안별 복구 제한을 확인했다. 브라우저에서의 전체 이벤트 흐름 검증을 대체하지 않는다.
+- 미저장 안내는 주황색 느낌표와 한 줄 문구, 저장 완료는 초록색 체크와 한 줄 문구로 표시한다.
+- 브라우저 도구 초기화가 `Importing module "node:process" is not allowed in node_repl` 오류로 실패해 이번 실행에서는 실제 화면·모바일·키보드 회귀를 확인하지 못했다.
+- 이후 사용자 직접 브라우저 확인으로 저장·재조회·재작성, 미저장 보호, 네트워크·서버 실패 재시도, 세션 만료 복구·계정 전환, 느린 응답 차단, 404, 모바일·키보드 및 기존 기능 회귀를 모두 정상 확인해 Step 8을 완료했다. 상세 결과는 [Step 8 문서](../docs/issues/Issue-%237-Feature-Step-8.md)의 7절에서 관리한다. 세션 만료 복구는 새로고침 없이 확인했으며, 새로고침 시 메모리의 미저장 입력은 사라진다.
