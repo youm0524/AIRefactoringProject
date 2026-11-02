@@ -25,6 +25,14 @@ export default function App() {
 
   const coverStartJob = useRef(null)
   const coverLeaveGuard = useRef(null)
+  const coverSnapshot = useRef(null)
+  const coverRecovery = useRef(null)
+  const registerCoverSnapshot = useCallback(getSnapshot => {
+    coverSnapshot.current = getSnapshot
+    return () => {
+      if (coverSnapshot.current === getSnapshot) coverSnapshot.current = null
+    }
+  }, [])
   const registerCoverLeaveGuard = useCallback(guard => {
     coverLeaveGuard.current = guard
     return () => {
@@ -40,6 +48,7 @@ export default function App() {
 
   const clearSession = useCallback(() => {
     coverStartJob.current = null
+    coverRecovery.current = null
     tokenRef.current = ''
     verification.current.cancel()
     localStorage.removeItem('careerpick-token')
@@ -54,7 +63,9 @@ export default function App() {
   const expireSession = useCallback(failedToken => {
     if (!failedToken || tokenRef.current !== failedToken) return
     const resumeJob = coverStartJob.current
+    const recovery = coverSnapshot.current?.() || coverRecovery.current
     clearSession()
+    coverRecovery.current = recovery
     if (resumeJob) {
       coverStartJob.current = resumeJob
       setTargetJob(resumeJob)
@@ -96,10 +107,12 @@ export default function App() {
     setToken(result.token)
     setUser(result.user)
     setSessionError(null)
-    setSelectedCoverLetterId(null)
+    const recovery = coverRecovery.current?.userId === result.user.id ? coverRecovery.current : null
+    coverRecovery.current = recovery
+    setSelectedCoverLetterId(recovery?.coverLetterId ?? null)
     const resumeJob = coverStartJob.current
     setTargetJob(resumeJob)
-    setPage(current => resumeJob ? 'cover-start' : current.startsWith('cover') ? 'cover-list' : current)
+    setPage(current => recovery ? 'cover-detail' : resumeJob ? 'cover-start' : current.startsWith('cover') ? 'cover-list' : current)
     showNotice(`${result.user.name}님, 반가워요!`)
   }
   const closeLogin = () => {
@@ -121,6 +134,7 @@ export default function App() {
   const openCoverList = () => {
     if (!canLeaveCover()) return
     coverStartJob.current = null
+    coverRecovery.current = null
     setSelectedCoverLetterId(null)
     setTargetJob(null)
     setSelectedJob(null)
@@ -129,6 +143,7 @@ export default function App() {
   }
   const openCoverDetail = coverLetterId => {
     if (!canLeaveCover()) return
+    coverRecovery.current = null
     setSelectedCoverLetterId(coverLetterId)
     setPage('cover-detail')
     window.scrollTo({top:0, behavior:'smooth'})
@@ -136,6 +151,7 @@ export default function App() {
   const openCover = job => {
     if (!canLeaveCover()) return
     if (coverStartJob.current) return
+    coverRecovery.current = null
     coverStartJob.current = job
     setSelectedCoverLetterId(null)
     setTargetJob(job)
@@ -155,6 +171,7 @@ export default function App() {
     if (!canLeaveCover()) return false
     coverStartJob.current = null
     setTargetJob(null)
+    coverRecovery.current = null
     setPage('jobs')
     return true
   }
@@ -212,6 +229,8 @@ export default function App() {
               onRequireLogin={() => setLoginOpen(true)}
               onBack={openCoverList}
               onRegisterLeaveGuard={registerCoverLeaveGuard}
+              onRegisterSnapshot={registerCoverSnapshot}
+              recovery={coverRecovery.current}
             />
           )
           : targetJob && (

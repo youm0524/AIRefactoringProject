@@ -1,6 +1,7 @@
 import {useEffect, useLayoutEffect, useRef, useState} from 'react'
 import {getCoverLetter, updateCoverLetter} from '../shared/api/careerpickApi.js'
 import {getCoverLetterAnswers, buildCoverLetterAnswerItems, hasUnsavedCoverLetterAnswers} from '../features/coverLetters/answers.js'
+import {restoreCoverLetterAnswers} from '../features/coverLetters/sessionRecovery.js'
 import {canLeaveCoverLetter} from '../features/coverLetters/navigation.js'
 
 const savedAtFormat = new Intl.DateTimeFormat('ko-KR', {
@@ -69,8 +70,14 @@ export function CoverLetterDetailContent({view, onRetry, onRequireLogin, answers
           aria-describedby={`cover-item-${item.id}-count`}
         />
       </label>)}
-      {saveState?.status === 'success' && <p role="status">자기소개서를 저장했습니다.</p>}
-      {!isSaving && hasUnsavedCoverLetterAnswers(detail, answers) && <p role="status">저장하지 않은 변경사항이 있습니다.</p>}
+      {saveState?.status === 'success' && <div className="cover-save-success" role="status">
+        <span className="cover-save-success-icon" aria-hidden="true">✓</span>
+        <span>자기소개서를 저장했습니다.</span>
+      </div>}
+      {!isSaving && hasUnsavedCoverLetterAnswers(detail, answers) && <div className="cover-unsaved-warning" role="status">
+        <span className="cover-unsaved-warning-icon" aria-hidden="true">!</span>
+        <span>저장하지 않은 변경사항이 있습니다.</span>
+      </div>}
       {saveState?.status === 'error' && <div className="cover-detail-save-error">
         <p role="alert">
           {saveState.error.status === 401 ? '로그인이 만료되었습니다. 다시 로그인해 주세요.' : saveState.error.message}
@@ -87,7 +94,7 @@ export function CoverLetterDetailContent({view, onRetry, onRequireLogin, answers
 }
 
 export default function CoverLetterPage({coverLetterId, token, user, sessionError, onRetrySession,
-  onSessionExpired, onRequireLogin, onBack, onRegisterLeaveGuard}) {
+  onSessionExpired, onRequireLogin, onBack, onRegisterLeaveGuard, onRegisterSnapshot, recovery}) {
   const [result, setResult] = useState(null)
   const [attempt, setAttempt] = useState(0)
   const [saveState, setSaveState] = useState(null)
@@ -104,7 +111,7 @@ export default function CoverLetterPage({coverLetterId, token, user, sessionErro
     const controller = new AbortController()
     getCoverLetter(coverLetterId, token, {signal: controller.signal})
       .then(detail => {
-        if (!controller.signal.aborted) setResult({coverLetterId, token, userId, attempt, status: 'ready', detail, answers: getCoverLetterAnswers(detail)})
+        if (!controller.signal.aborted) setResult({coverLetterId, token, userId, attempt, status: 'ready', detail, answers: restoreCoverLetterAnswers(detail, userId, recovery)})
       })
       .catch(error => {
         if (controller.signal.aborted) return
@@ -112,7 +119,7 @@ export default function CoverLetterPage({coverLetterId, token, user, sessionErro
         else setResult({coverLetterId, token, userId, attempt, status: error.status === 404 ? 'not-found' : 'error', error})
       })
     return () => controller.abort()
-  }, [coverLetterId, token, userId, attempt, onSessionExpired])
+  }, [coverLetterId, token, userId, attempt, onSessionExpired, recovery])
 
   let view
   if (!token) view = {status: 'signed-out'}
@@ -127,6 +134,10 @@ export default function CoverLetterPage({coverLetterId, token, user, sessionErro
     answers: view.status === 'ready' ? view.answers : null,
     isSaving: Boolean(activeSave.current)
   })), [onRegisterLeaveGuard, view])
+
+  useLayoutEffect(() => onRegisterSnapshot?.(() => view.status === 'ready'
+    ? {coverLetterId, userId, answers: {...view.answers}} : null),
+  [onRegisterSnapshot, view, coverLetterId, userId])
 
   const currentSave = saveState?.coverLetterId === coverLetterId && saveState?.token === token && saveState?.userId === userId ? saveState : null
   const saveAnswers = async () => {
@@ -149,7 +160,12 @@ export default function CoverLetterPage({coverLetterId, token, user, sessionErro
         ? {...current, detail, answers: getCoverLetterAnswers(detail)} : current)
       setSaveState({...scope, status: 'success'})
     } catch (error) {
-      if (!operation.controller.signal.aborted) setSaveState({...scope, status: 'error', error: error.status ? error : new Error('서버에 연결할 수 없습니다. 연결을 확인하고 다시 시도해 주세요.')})
+      if (operation.controller.signal.aborted) return
+      if (error.status === 401) {
+        onSessionExpired(token)
+        return
+      }
+      setSaveState({...scope, status: 'error', error: error.status ? error : new Error('서버에 연결할 수 없습니다. 연결을 확인하고 다시 시도해 주세요.')})
     } finally {
       if (activeSave.current === operation) activeSave.current = null
     }
