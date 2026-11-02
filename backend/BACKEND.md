@@ -109,7 +109,8 @@ MySQL에는 다음 테이블을 저장한다.
 - `cover_letters`: 사용자·공고별 자기소개서 초안 1개와 생성·수정 시각
 - `cover_letter_items`: 초안 생성 당시 질문, 문항 순서·글자 제한과 답변
 
-자기소개서 저장 기반과 생성·목록·상세·저장·삭제 API는 구현되었다. 화면 연결은 후속 단계에서 추가한다.
+자기소개서 생성·목록·상세·저장·삭제 API와 프론트엔드 화면 연결을 제공한다.
+최초 생성 시 지원 동기(`motivation`)·직무 경험(`experience`) 질문과 각각 700자 제한을 초안에 복사한다. 이후 원본 문항이 바뀌더라도 기존 초안의 질문을 유지하기 위한 구조다. 기업별 원본 문항 관리 기능은 아직 제공하지 않는다. 기업명·공고명은 연결된 공고의 현재 값을 사용한다.
 `CoverLetter.updateAnswers`는 모든 문항을 검증한 뒤 답변과 부모 수정 시각을 갱신한다.
 동일 사용자·공고, 초안 내 문항 키·순서는 UNIQUE로 보호한다. 사용자·공고 삭제는 초안이 있으면 제한하고, 초안 삭제 시 문항은 함께 삭제한다.
 목록은 공고 관계만 가져와 페이지 조회하고, 상세 조회는 문항을 함께 가져온다. DTO 변환은 서비스 트랜잭션 안에서 수행한다.
@@ -209,6 +210,4 @@ export TEST_MIGRATION_DB_URL='jdbc:mysql://127.0.0.1:3308/careerpick_migration_t
 Swagger 테스트 순서: 로그인 → Authorize(token 값만 입력) → 공고 목록에서 jobId 확인 → POST 생성 → 응답 id로 GET 상세 → 문항 id로 PUT 저장 → GET 재조회 → DELETE → GET의 404 확인.
 Postman에서는 Authorization의 Bearer Token에 같은 토큰을 입력하고 JSON 요청에 `Content-Type: application/json`을 사용한다.
 
-### Issue #7 최종 검증 (2026-11-02)
-
-분리된 테스트·마이그레이션 MySQL DB를 지정하고 `./gradlew test --rerun-tasks`를 실행해 27개 테스트를 건너뜀 없이 통과했다. 실제 개발 API에서도 두 계정으로 미인증 요청 401, 타인 초안 조회·수정·삭제 404, 잘못된 저장 400과 데이터 불변, 공고별 저장·재조회·삭제 후 재작성을 확인했다. 이번 검증에서 생성한 초안만 정리했으며 기존 목록은 유지했다. 상세 결과는 [Step 9 문서](../docs/issues/Issue-%237-Feature-Step-9.md)를 참고한다.
+완료 시점의 테스트·실제 API 검증 결과와 후속 작업은 [Issue #7 요약](../docs/issues/Issue-%237-Feature.md)에 기록한다.
