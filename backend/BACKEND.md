@@ -155,4 +155,10 @@ Swagger UI의 `Authorize`에는 로그인 응답의 token 값만 입력한다. �
 ./gradlew test
 ```
 
+Flyway와 Hibernate 매핑을 실제 MySQL에서 검증할 때는 임시 DB 래퍼를 사용한다. 래퍼는 `careerpick_verify_*` DB를 새로 만들고 검증이 끝나거나 실패하면 자동 삭제한다.
+
+```bash
+./scripts/with-verification-db.sh flyway-smoke
+```
+
 새로운 서비스 로직에는 단위 테스트를 추가하고, DB 매핑이나 마이그레이션 변경에는 실제 MySQL을 사용하는 통합 테스트를 추가한다.
