@@ -61,10 +61,12 @@ com.careerpick
 │   └── UserView.java
 ├── entity
 │   ├── ChatMessageEntity.java
+│   ├── CommunityRoom.java
 │   ├── Job.java
 │   └── User.java
 ├── repository
 │   ├── ChatMessageRepository.java
+│   ├── CommunityRoomRepository.java
 │   ├── JobRepository.java
 │   └── UserRepository.java
 └── service
@@ -100,7 +102,8 @@ controller → service → repository → entity
 MySQL에는 다음 테이블을 저장한다.
 
 - `users`: 사용자와 BCrypt 비밀번호 해시
-- `jobs`: 채용공고
+- `community_rooms`: 기업별 하나의 커뮤니티 채팅방
+- `jobs`: 채용공고와 필수 기업 채팅방 연결
 - `job_tags`: 공고별 태그
 - `chat_messages`: 공고별 채팅 메시지
 
@@ -112,7 +115,8 @@ Hibernate는 `ddl-auto=validate`로 매핑만 검증한다. 테이블 생성과 
 
 ```text
 src/main/resources/db/migration/
-└── V1__create_core_tables.sql
+├── V1__create_core_tables.sql
+└── V2__create_community_rooms.sql
 ```
 
 적용된 마이그레이션 파일은 수정하지 않는다. 변경이 필요하면 `V2__설명.sql`, `V3__설명.sql`처럼 새 파일을 추가한다.
