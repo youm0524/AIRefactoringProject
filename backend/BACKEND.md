@@ -208,3 +208,7 @@ export TEST_MIGRATION_DB_URL='jdbc:mysql://127.0.0.1:3308/careerpick_migration_t
 
 Swagger 테스트 순서: 로그인 → Authorize(token 값만 입력) → 공고 목록에서 jobId 확인 → POST 생성 → 응답 id로 GET 상세 → 문항 id로 PUT 저장 → GET 재조회 → DELETE → GET의 404 확인.
 Postman에서는 Authorization의 Bearer Token에 같은 토큰을 입력하고 JSON 요청에 `Content-Type: application/json`을 사용한다.
+
+### Issue #7 최종 검증 (2026-11-02)
+
+분리된 테스트·마이그레이션 MySQL DB를 지정하고 `./gradlew test --rerun-tasks`를 실행해 27개 테스트를 건너뜀 없이 통과했다. 실제 개발 API에서도 두 계정으로 미인증 요청 401, 타인 초안 조회·수정·삭제 404, 잘못된 저장 400과 데이터 불변, 공고별 저장·재조회·삭제 후 재작성을 확인했다. 이번 검증에서 생성한 초안만 정리했으며 기존 목록은 유지했다. 상세 결과는 [Step 9 문서](../docs/issues/Issue-%237-Feature-Step-9.md)를 참고한다.

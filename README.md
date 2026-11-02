@@ -37,8 +37,11 @@ cd frontend && npm test
 백엔드의 첫 실행에서 Gradle 8.14.6을 내려받고 체크섬을 검증합니다. 시스템에 Gradle을 별도로 설치할 필요는 없습니다.
 
 사용자, 채용공고, 공고별 채팅은 MySQL에 저장되고 로그인 세션은 Redis에서 24시간 유지됩니다.
-첫 실행 시 Flyway가 `users`, `jobs`, `job_tags`, `chat_messages` 테이블을 생성하고 애플리케이션이 데모 데이터를 추가합니다.
+자기소개서는 로그인 사용자·공고별로 하나의 초안을 MySQL에 저장하며, 목록에서 다시 열어 수정·저장·삭제할 수 있습니다. 같은 공고에서 다시 작성하면 기존 초안을 열고, 삭제 후 재작성하면 새 초안을 만듭니다.
+첫 실행 시 Flyway가 `users`, `jobs`, `job_tags`, `chat_messages`, `cover_letters`, `cover_letter_items` 테이블을 생성하고 애플리케이션이 데모 데이터를 추가합니다.
 이후 스키마 변경은 `backend/src/main/resources/db/migration`에 다음 버전의 SQL 파일로 추가해야 합니다.
+
+자기소개서 전체 검증 결과는 [Issue #7 9단계](docs/issues/Issue-%237-Feature-Step-9.md)에 기록했습니다. 프론트 테스트 52개·빌드, 분리된 MySQL DB의 백엔드 테스트 27개와 실제 API 권한 검증은 통과했습니다. 전체 프론트 lint는 기존 JSX 줄바꿈 오류 192건이 남아 있습니다. DB 테스트 실행 방법은 [백엔드 안내](backend/BACKEND.md)를 참고하세요.
 
 기존에 Hibernate가 만든 로컬 테이블이 있다면 필요한 데이터를 먼저 백업한 뒤 최초 전환 시 볼륨을 초기화하세요. 아래 명령은 로컬 MySQL과 Redis 데이터를 모두 삭제합니다.
 
