@@ -15,6 +15,7 @@ Thumbs.db
 
 # Local environment and secrets
 .env
+/.codex/
 .env.*
 !.env.example
 backend/src/main/resources/application-local.properties
