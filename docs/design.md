@@ -5,9 +5,10 @@
 - 상태: 승인됨
 - 승인일: 2026-11-02
 - 작성일: 2026-10-29
+- 변경일: 2026-11-03
 - 기준 요구사항: [community-requirements.md](./community-requirements.md)
 - 참고 기록: [community-technical-decisions.md](./community-technical-decisions.md)
-- 범위: 기업별 채팅방 참여, 목록, 메시지 조회·송수신, 나가기, 기존 메시지 마이그레이션
+- 범위: 회사 관계 정규화, 기업별 채팅방 참여, 목록, 메시지 조회·송수신, 나가기, 기존 메시지 마이그레이션
 
 이 문서는 승인된 요구사항을 현재 코드베이스에 적용하기 위한 기술 설계다. 구현 순서와 작업 분할은 설계 승인 후 별도로 작성한다.
 
@@ -20,12 +21,12 @@
 - Java 17, Spring Boot 3.5.7, Spring MVC, JPA를 사용한다.
 - Controller → Service → Repository → Entity의 계층 구조를 사용한다.
 - MySQL 8.4와 Flyway가 영속 데이터와 스키마 이력을 관리한다.
-- `users`, `jobs`, `job_tags`, `chat_messages` 테이블이 존재한다.
-- 기업은 별도 엔티티가 아니라 `jobs.company` 문자열이다.
-- `chat_messages.job_id`가 메시지를 공고별로 구분한다.
+- `users`, `companies`, `jobs`, `job_tags`, `community_rooms`, `community_room_members`, `chat_messages` 테이블이 존재한다.
+- 회사는 독립 `Company` 엔티티이며 공고와 기업 채팅방이 `company_id`로 참조한다.
+- `chat_messages.room_id`가 메시지를 기업 방별로 구분하고 nullable `source_job_id`가 기존 출처 공고를 보존한다.
 - 메시지에는 nullable `user_id`, 작성 당시 이름인 `author`, 최대 120자의 `text`, UTC `created_at`이 저장된다.
-- 메시지 조회 API는 인증 없이 전체 메시지를 오래된 순서로 반환한다.
-- 메시지 전송 API는 인증하지만 별도의 참여 권한은 확인하지 않는다.
+- 메시지 조회 API는 로그인과 방 참여 권한을 확인하고 최신 50개를 오래된 순서로 반환한다.
+- 메시지 전송 API와 WebSocket은 아직 구현되지 않았다.
 - 로그인은 Spring Security 필터 없이 `AuthService`가 Bearer opaque token을 직접 검증한다.
 - 로그인 세션은 Redis의 `auth:session:{token}` 키에 24시간 고정 TTL로 저장된다.
 - WebSocket, Redis Pub/Sub, 공통 오류 응답은 구현되어 있지 않다.
@@ -35,29 +36,25 @@
 - React 19와 브라우저 Fetch API를 사용한다.
 - 화면과 인증 상태는 `App`의 `useState`로 관리하며 React Router와 전역 상태 라이브러리는 없다.
 - 로그인 토큰은 `localStorage`에 저장한다.
-- `JobChat`은 공고 상세에서 여는 토글 패널이며 REST로 메시지를 조회·전송한다.
-- 커뮤니티 상단 메뉴는 독립 화면이 아니라 채용공고 페이지 하단으로 스크롤한다.
-- API 장애 시 공고에는 샘플 데이터를 사용하고 채팅에도 임시 메시지를 표시한다.
-- 프론트엔드 테스트는 순수 검색·필터 함수에 대한 `node:test`만 존재한다.
+- 독립 `CommunityPage`가 참여 방 목록, 선택 방 메시지와 나가기를 제공한다.
+- 공고 상세와 상단 커뮤니티 메뉴는 로그인 후 참여·이동 의도를 복원한다.
+- 공고 API 장애에는 샘플 데이터를 사용하지만 커뮤니티 API 장애에는 가짜 방이나 메시지를 표시하지 않는다.
+- 프론트엔드에는 검색·필터와 커뮤니티 API에 대한 `node:test`가 있다.
 
 ### 2.2 문서에만 있고 아직 구현되지 않은 내용
 
-- 기업별 단일 채팅방과 안정적인 채팅방 ID
-- 사용자와 채팅방의 참여 관계
-- 참여자 전용 목록, 메시지 조회·전송·실시간 수신
-- 최신 메시지 50개 제한과 최근 활동 순 목록
-- 채팅방 나가기와 재참여
+- 참여자 전용 메시지 전송과 실시간 수신
 - WebSocket JSON 프로토콜과 연결 인증
 - Redis Pub/Sub 서버 간 중계
 - 재연결 후 REST 재조회 복구
-- 공고별 기존 메시지의 기업별 병합
+- 모바일 목록·채팅 전환과 연결 상태 UI 마무리
 
 ### 2.3 영향 범위
 
 | 영역 | 영향 |
 | --- | --- |
-| DB | 기업 채팅방, 참여 관계, 공고-방 관계, 메시지-방 관계, 인덱스와 기존 데이터 이관 |
-| 백엔드 도메인 | `Job`, `ChatMessageEntity`, 새 채팅방·참여 엔티티와 Repository |
+| DB | 회사, 기업 채팅방, 참여 관계, 공고-회사 관계, 회사-방 관계, 메시지-방 관계, 인덱스와 기존 데이터 이관 |
+| 백엔드 도메인 | `Company`, `Job`, `ChatMessageEntity`, 채팅방·참여 엔티티와 Repository |
 | 백엔드 API | 기존 공고 메시지 API 제거, 참여·목록·조회 REST API 추가 |
 | 실시간 처리 | WebSocket 인증·송신·수신, Redis 발행·구독, 연결 수명 관리 |
 | 인증·인가 | REST와 WebSocket 세션 확인, 참여 여부 확인, 나가기 직후 수신 차단 |
@@ -69,13 +66,14 @@
 
 ## 3. 설계 원칙과 확정 결정
 
-### 3.1 기업 채팅방을 별도 식별한다
+### 3.1 회사와 기업 채팅방을 별도 식별한다
 
-`community_rooms`에 안정적인 ID를 부여하고 모든 `jobs`가 하나의 `community_room_id`를 참조한다. 기업명은 마이그레이션과 표시를 위한 속성이지 메시지나 참여 관계의 FK로 사용하지 않는다.
+`companies`에 안정적인 회사 ID를 부여하고 모든 `jobs`가 `company_id`를 참조한다. `community_rooms`도 독립 ID를 유지하고 `company_id`의 유일 제약으로 회사당 방 하나를 보장한다. 회사명은 최초 이관과 표시를 위한 값이며 공고·방 관계의 키로 사용하지 않는다.
 
 검토한 대안:
 
-- 별도 `companies` 엔티티: 기업 관리 요구사항이 없어 이번 범위에는 과하다.
+- `company_id`와 `room_id`를 같은 값으로 사용: 서로 다른 엔티티의 의미와 수명을 결합한다.
+- `jobs.community_room_id` 유지: `job → company → room`으로 결정되는 관계를 중복 저장해 불일치 가능성이 생긴다.
 - 기업명 문자열을 직접 관계 키로 사용: 이름 변경과 표기 차이에 취약하다.
 
 ### 3.2 기본 WebSocket과 JSON 프로토콜을 사용한다
@@ -127,7 +125,7 @@ Spring MVC / WebSocket
   ├─ CommunityMessageService: 참여 잠금과 메시지 저장
   └─ CommunityRealtimeService: 커밋 후 Redis 발행과 로컬 연결 전달
           │
-          ├─ MySQL: 방, 참여 관계, 메시지 원본
+          ├─ MySQL: 회사, 공고, 방, 참여 관계, 메시지 원본
           └─ Redis: 로그인 세션, 서버 간 실시간 이벤트
 ```
 
@@ -171,25 +169,129 @@ Spring MVC / WebSocket
 
 ## 5. 데이터 모델
 
-### 5.1 `community_rooms`
+이 절은 V5 적용 후 현재 전체 스키마를 나타낸다. V1~V4에서 사용한 `jobs.company`, `logo`, `color`, `community_room_id`와 `community_rooms.company_name`의 전환 절차는 13장에서 설명한다.
+
+### 5.1 전체 ERD
+
+```mermaid
+erDiagram
+    COMPANY ||--o{ JOB : posts
+    COMPANY ||--|| COMMUNITY_ROOM : owns
+    JOB ||--o{ JOB_TAG : has
+    USER ||--o{ COMMUNITY_ROOM_MEMBER : joins
+    COMMUNITY_ROOM ||--o{ COMMUNITY_ROOM_MEMBER : includes
+    COMMUNITY_ROOM ||--o{ CHAT_MESSAGE : contains
+    USER o|--o{ CHAT_MESSAGE : writes
+    JOB o|--o{ CHAT_MESSAGE : sourced_from
+
+    COMPANY {
+        BIGINT id PK
+        VARCHAR name UK
+        VARCHAR logo
+        VARCHAR color
+    }
+    USER {
+        BIGINT id PK
+        VARCHAR name
+        VARCHAR email UK
+        VARCHAR password_hash
+    }
+    JOB {
+        BIGINT id PK
+        BIGINT company_id FK
+        VARCHAR title
+        VARCHAR category
+        VARCHAR type
+        VARCHAR location
+        VARCHAR deadline
+    }
+    JOB_TAG {
+        BIGINT job_id FK
+        VARCHAR tag
+    }
+    COMMUNITY_ROOM {
+        BIGINT id PK
+        BIGINT company_id FK, UK
+        DATETIME created_at
+    }
+    COMMUNITY_ROOM_MEMBER {
+        BIGINT id PK
+        BIGINT user_id FK
+        BIGINT room_id FK
+        DATETIME joined_at
+    }
+    CHAT_MESSAGE {
+        BIGINT id PK
+        BIGINT source_job_id FK
+        BIGINT room_id FK
+        BIGINT user_id FK
+        VARCHAR client_message_id
+        VARCHAR author
+        VARCHAR text
+        DATETIME created_at
+    }
+```
+
+- `Company`와 `CommunityRoom`은 각각 독립된 ID를 가진다.
+- `community_rooms.company_id`의 UNIQUE 제약으로 회사당 방 하나를 보장한다.
+- `community_room_members`는 `(user_id, room_id)` 복합 UNIQUE 제약을 가진다.
+- `chat_messages.source_job_id`, `user_id`, `client_message_id`는 nullable이다.
+- Redis 로그인 세션은 MySQL 엔티티가 아니므로 ERD에 포함하지 않는다.
+
+### 5.2 `companies`
+
+| 컬럼 | 타입 | 제약 | 설명 |
+| --- | --- | --- | --- |
+| `id` | BIGINT | PK, AUTO_INCREMENT | 안정적인 회사 ID |
+| `name` | VARCHAR(100) | NOT NULL, UNIQUE | 회사 표시명 |
+| `logo` | VARCHAR(10) | NOT NULL | 현재 UI에서 사용하는 회사 표시 문자 |
+| `color` | VARCHAR(20) | NOT NULL | 현재 UI에서 사용하는 회사 표시 색상 |
+
+`name`은 현재 MVP에서 회사 중복 등록을 막기 위해 정확 일치 유일 제약을 사용한다. 회사 생성 후 공고와 방의 관계는 이름이 아니라 `company_id`로 유지한다. 사업자등록번호와 회사 관리 API는 현재 범위에 포함하지 않는다.
+
+### 5.3 `users`
+
+| 컬럼 | 타입 | 제약 | 설명 |
+| --- | --- | --- | --- |
+| `id` | BIGINT | PK, AUTO_INCREMENT | 사용자 ID |
+| `name` | VARCHAR(50) | NOT NULL | 사용자 표시명 |
+| `email` | VARCHAR(255) | NOT NULL, UNIQUE | 로그인 이메일 |
+| `password_hash` | VARCHAR(60) | NOT NULL | BCrypt 비밀번호 해시 |
+
+### 5.4 `jobs`
+
+| 컬럼 | 타입 | 제약 | 설명 |
+| --- | --- | --- | --- |
+| `id` | BIGINT | PK, AUTO_INCREMENT | 공고 ID |
+| `company_id` | BIGINT | NOT NULL, FK | 공고를 게시한 회사 |
+| `title` | VARCHAR(200) | NOT NULL | 공고 제목 |
+| `category` | VARCHAR(30) | NOT NULL, INDEX | 직무 분야 |
+| `type` | VARCHAR(30) | NOT NULL | 고용·경력 유형 |
+| `location` | VARCHAR(100) | NOT NULL | 근무 지역 |
+| `deadline` | VARCHAR(30) | NOT NULL | 현재 MVP 마감일 표시 문자열 |
+
+기존 `company`, `logo`, `color`, `community_room_id`는 회사와 방 관계를 중복 저장하므로 이관 완료 후 제거한다. 공고 응답은 연결된 회사의 `companyId`·이름·로고·색상을 사용한다. 기존 필드는 유지하고 `companyId`를 추가해 기존 클라이언트와 호환된다.
+
+### 5.5 `job_tags`
+
+| 컬럼 | 타입 | 제약 | 설명 |
+| --- | --- | --- | --- |
+| `job_id` | BIGINT | NOT NULL, FK, INDEX | 태그가 속한 공고 |
+| `tag` | VARCHAR(50) | NOT NULL | 공고 검색 보조 태그 |
+
+공고가 삭제되면 연결된 태그도 함께 삭제한다.
+
+### 5.6 `community_rooms`
 
 | 컬럼 | 타입 | 제약 | 설명 |
 | --- | --- | --- | --- |
 | `id` | BIGINT | PK, AUTO_INCREMENT | 안정적인 채팅방 ID |
-| `company_name` | VARCHAR(100) | NOT NULL, UNIQUE | 마이그레이션 당시 기업 표시명 |
+| `company_id` | BIGINT | NOT NULL, FK, UNIQUE | 방을 소유한 회사 |
 | `created_at` | DATETIME(6) | NOT NULL | 방 생성 시각, UTC |
 
-`company_name`은 정확 일치 요구사항을 지키도록 대소문자와 악센트를 구분하는 collation을 사용한다. 마이그레이션도 같은 비교 규칙으로 수행한다. 기업명 변경은 방 ID를 바꾸지 않고 표시명과 공고 연결만 갱신해야 한다.
+회사당 방 하나를 DB 제약으로 보장한다. 회사명 변경은 회사 행만 변경하며 방 ID, 참여 관계와 메시지는 바꾸지 않는다.
 
-### 5.2 `jobs` 변경
-
-| 컬럼 | 타입 | 제약 | 설명 |
-| --- | --- | --- | --- |
-| `community_room_id` | BIGINT | NOT NULL, FK | 공고가 속한 기업 채팅방 |
-
-같은 기업의 공고는 같은 `community_room_id`를 가져야 한다. 현재 공고 생성 API는 없지만 초기 데이터나 향후 공고 생성 경로도 기업명 정확 일치 방을 조회하거나 생성한 뒤 공고를 저장해야 한다.
-
-### 5.3 `community_room_members`
+### 5.7 `community_room_members`
 
 | 컬럼 | 타입 | 제약 | 설명 |
 | --- | --- | --- | --- |
@@ -203,24 +305,25 @@ Spring MVC / WebSocket
 - 재참여하면 새 행과 새 `joined_at`이 생성된다.
 - 나가거나 재참여해도 메시지는 변경하지 않는다.
 
-### 5.4 `chat_messages` 변경
+### 5.8 `chat_messages`
 
-| 컬럼 | 변경 | 설명 |
-| --- | --- | --- |
-| `room_id` | BIGINT NOT NULL FK 추가 | 메시지 소속 기업 채팅방 |
-| `job_id` | `source_job_id`로 변경하고 nullable 유지 | 기존 메시지의 출처 보존용, 새 메시지는 NULL |
-| `client_message_id` | VARCHAR(36) nullable 추가 | WebSocket 재전송 중복 방지, 기존 메시지는 NULL |
-| `user_id` | 기존 nullable 유지 | 탈퇴·기존 익명 메시지 허용 |
-| `author` | 기존 유지 | 작성 당시 이름 보존 |
-| `text` | 기존 최대 120자 유지 | 메시지 본문 |
-| `created_at` | 기존 유지 | UTC 사건 시각 |
+| 컬럼 | 타입 | 제약 | 설명 |
+| --- | --- | --- | --- |
+| `id` | BIGINT | PK, AUTO_INCREMENT | 메시지 ID |
+| `source_job_id` | BIGINT | NULL, FK | 기존 메시지의 출처 공고 보존용 |
+| `room_id` | BIGINT | NOT NULL, FK | 메시지가 속한 기업 채팅방 |
+| `user_id` | BIGINT | NULL, FK | 인증 작성자, 기존 익명 메시지는 NULL |
+| `client_message_id` | VARCHAR(36) | NULL | WebSocket 재전송 중복 방지 |
+| `author` | VARCHAR(50) | NOT NULL | 작성 당시 표시명 |
+| `text` | VARCHAR(120) | NOT NULL | 메시지 본문 |
+| `created_at` | DATETIME(6) | NOT NULL | 작성 시각, UTC |
 
 - `(room_id, created_at DESC, id DESC)` 인덱스로 최신 50개와 최근 활동 조회를 지원한다.
 - `(user_id, client_message_id)`에 유일 제약을 둔다. 기존 NULL 값은 여러 건을 허용한다.
 - 같은 `client_message_id`가 다시 도착하면 새 메시지를 만들지 않고 기존 저장 결과를 반환한다.
 - `source_job_id`는 메시지 범위나 권한 판정에 사용하지 않는다. 데이터 손실 없는 전환과 감사 용도로만 남긴다.
 
-### 5.5 방 목록 정렬
+### 5.9 방 목록 정렬
 
 - 메시지가 있는 방은 `lastMessageAt DESC`, 마지막 메시지 ID DESC로 정렬한다.
 - 메시지가 없는 방은 메시지가 있는 방 뒤에 배치한다.
@@ -231,15 +334,35 @@ Spring MVC / WebSocket
 
 ## 6. REST API 계약
 
+공고·참여·방 목록 응답의 `companyId`는 같은 `companies.id`를 가리킨다. 방 `id`는 `community_rooms.id`로 별개이며, 두 ID의 숫자 일치를 관계로 해석하지 않는다.
+
+### 6.1 공고 목록
+
+```http
+GET /api/jobs
+```
+
+기존 공고 필드를 유지하고 연결된 회사 ID를 추가한다.
+
+```json
+{
+  "id": 101,
+  "companyId": 3,
+  "company": "네오테크",
+  "logo": "N",
+  "color": "#6556df"
+}
+```
+
 모든 커뮤니티 API는 `Authorization: Bearer {opaque-token}`을 요구한다.
 
-### 6.1 공고를 통한 참여
+### 6.2 공고를 통한 참여
 
 ```http
 PUT /api/jobs/{jobId}/community-membership
 ```
 
-- 공고가 가리키는 기업 방에 참여한다.
+- 공고의 `company_id`로 회사의 기업 방을 찾아 참여한다.
 - 이미 참여 중이면 새 행을 만들지 않고 같은 결과를 반환한다.
 - 신규·기존 참여 모두 `200 OK`로 통일해 클라이언트 분기를 줄인다.
 
@@ -249,12 +372,13 @@ PUT /api/jobs/{jobId}/community-membership
 {
   "room": {
     "id": 12,
+    "companyId": 3,
     "companyName": "네오테크"
   }
 }
 ```
 
-### 6.2 참여 방 목록
+### 6.3 참여 방 목록
 
 ```http
 GET /api/community-rooms
@@ -266,6 +390,7 @@ GET /api/community-rooms
 [
   {
     "id": 12,
+    "companyId": 3,
     "companyName": "네오테크",
     "joinedAt": "2026-10-29T01:00:00Z",
     "lastMessage": {
@@ -280,7 +405,7 @@ GET /api/community-rooms
 
 빈 방의 `lastMessage`는 `null`이다.
 
-### 6.3 최신 메시지 조회
+### 6.4 최신 메시지 조회
 
 ```http
 GET /api/community-rooms/{roomId}/messages
@@ -306,7 +431,7 @@ GET /api/community-rooms/{roomId}/messages
 
 `mine`은 인증 사용자와 `user_id`를 비교해 서버가 계산한다. 다른 사용자의 내부 사용자 ID는 노출하지 않는다.
 
-### 6.4 나가기
+### 6.5 나가기
 
 ```http
 DELETE /api/community-rooms/{roomId}/membership
@@ -317,7 +442,7 @@ DELETE /api/community-rooms/{roomId}/membership
 - 메시지와 방은 삭제하지 않는다.
 - 프론트엔드는 요청 전에 한 번 확인창을 표시한다.
 
-### 6.5 기존 API 처리
+### 6.6 기존 API 처리
 
 다음 공고별 메시지 API는 제거한다.
 
@@ -588,7 +713,28 @@ REST 오류는 다음 형식으로 통일한다.
 
 운영 적용 전 DB 백업과 위 검증 결과 확인이 필요하다. 마이그레이션은 기존 메시지를 삭제하지 않으며 `source_job_id`를 남겨 수동 복구 근거를 보존한다.
 
-개발 초기 데이터 생성기는 방을 먼저 생성하고 공고를 연결한 뒤 기업 방 메시지를 생성하도록 변경해야 한다. 빈 DB에도 Flyway 적용 후 초기화가 성공해야 한다.
+개발 초기 데이터 생성기는 회사를 먼저 생성하고 방과 공고를 연결한 뒤 기업 방 메시지를 생성해야 한다. 빈 DB에도 Flyway 적용 후 초기화가 성공해야 한다.
+
+### 13.2 회사 엔티티 이관
+
+적용된 V1~V4를 수정하지 않고 새 Flyway 버전에서 회사 관계를 정규화한다.
+
+1. 기존 방에 연결된 공고가 하나 이상이며 같은 방의 회사명·로고·색상이 일치하는지 검증한다.
+2. `companies`를 생성하고 기존 `community_rooms`마다 회사 행 하나를 만든다.
+3. `community_rooms.company_id`와 `jobs.company_id`를 nullable로 추가한다.
+4. 기존 방 ID를 기준으로 방과 공고에 같은 `company_id`를 채운다.
+5. 두 FK를 NOT NULL로 변경하고 `community_rooms.company_id`에 유일 제약을 추가한다.
+6. 관계와 데이터 수를 검증한 뒤 `jobs.company`, `jobs.logo`, `jobs.color`, `jobs.community_room_id`, `community_rooms.company_name`을 제거한다.
+
+기존 `community_rooms.id`, `community_room_members.room_id`, `chat_messages.room_id`는 변경하지 않는다. 같은 방의 공고에 회사 정보 충돌이 있거나 공고가 없는 방이 있으면 값을 임의 선택하지 않고 마이그레이션을 실패시킨다.
+
+### 13.3 회사 이관 검증 기준
+
+- 모든 공고와 방의 `company_id`가 non-null이어야 한다.
+- 회사당 방은 최대 하나여야 한다.
+- 마이그레이션 전후 공고·방·참여 관계·메시지 수와 기존 ID가 같아야 한다.
+- 공고 응답의 회사명·로고·색상이 이관 전과 같아야 한다.
+- 제거 대상 중복 컬럼이 남아 있지 않아야 한다.
 
 ## 14. 프론트엔드 상태와 화면 흐름
 
@@ -640,6 +786,8 @@ REST 오류는 다음 형식으로 통일한다.
 
 - Flyway `V1 → 신규 버전` 실제 적용
 - 정확 회사명별 방 생성과 메시지 수 보존
+- 회사 FK 이관과 기존 방·공고·참여·메시지 ID 보존
+- 같은 방의 회사 정보 충돌과 공고 없는 방에서 이관 실패
 - 기존 작성자의 참여 관계 생성
 - 유일 제약과 FK 검증
 - 전송과 나가기 동시 실행 시 나가기 완료 후 저장되지 않음
@@ -672,7 +820,8 @@ REST 오류는 다음 형식으로 통일한다.
 
 | 요구사항 | 설계 대응 |
 | --- | --- |
-| 기업당 하나의 방 | `community_rooms`와 `jobs.community_room_id` |
+| 독립 회사 정보 | `companies`와 `jobs.company_id` |
+| 기업당 하나의 방 | `community_rooms.company_id` UNIQUE FK |
 | 공고를 통한 참여 | 멱등 PUT 참여 API |
 | 로그인 후 의도 복원 | `OPEN_COMMUNITY`, `JOIN_JOB_COMMUNITY` |
 | 참여 방만 목록 표시 | 사용자-방 참여 관계 기준 조회 |
@@ -686,7 +835,7 @@ REST 오류는 다음 형식으로 통일한다.
 | DB 저장 실패 시 미전송 | 커밋 이후 발행 경계 |
 | Redis 실패 표시 | `STORED_BUT_NOT_BROADCAST` |
 | 재연결 복구 | 목록과 선택 방 최신 50개 재조회 |
-| 기존 메시지 병합 | exact company 기준 room backfill |
+| 기존 메시지 병합 | 최초 exact company 기준 room backfill 후 회사 FK 이관 |
 | 데스크톱·모바일 UI | 2열 및 목록/채팅 전환 |
 
 ## 17. 설계 자체 검증
@@ -720,7 +869,7 @@ REST 오류는 다음 형식으로 통일한다.
 
 다음은 현재 요구사항에 필요하지 않아 제외한다.
 
-- 기업 엔티티와 기업 관리 기능
+- 회사 등록·수정 API와 관리자 화면
 - STOMP, Redis Streams, Transactional Outbox
 - 읽지 않은 수, 읽음 확인, 입력 중 표시
 - 방별 Redis 동적 구독과 참여 권한 캐시
@@ -731,9 +880,10 @@ REST 오류는 다음 형식으로 통일한다.
 
 - 운영 프론트엔드 Origin과 `wss` 종료 위치는 배포 환경 정보가 필요하다.
 - 실제 운영 데이터에서 기업명이 철자·공백 차이로 중복된 경우 자동 병합하지 않고 마이그레이션 전 사람이 매핑을 승인해야 한다.
+- 같은 방에 연결된 공고의 회사 로고·색상이 다르거나 공고 없는 방이 있으면 이관 전에 데이터를 정리해야 한다.
 - 현재는 서버 로그아웃이 없어 연결 중 세션 강제 폐기를 다루지 않는다. 로그아웃 API가 추가되면 WebSocket 폐기 이벤트 설계가 필요하다.
 - 참여 방 수와 메시지 트래픽이 커져 목록 계산이나 전달 전 참여 조회가 병목으로 측정될 때만 캐시 또는 비정규화를 검토한다.
 
 ## 18. 승인 기준
 
-이 설계가 승인되기 전에는 구현 계획 작성이나 코드 변경을 진행하지 않는다. 승인 후에도 운영 데이터의 기업명 중복 조사와 마이그레이션 백업 절차는 실제 적용 전 별도 확인이 필요하다.
+T-10 설계와 구현은 승인된 Task의 완료 조건으로 검증한다. 운영 적용 전에는 기업명 중복·회사 정보 충돌 조사와 마이그레이션 백업 절차를 별도로 확인해야 한다.
