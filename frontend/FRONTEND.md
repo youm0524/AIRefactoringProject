@@ -30,11 +30,11 @@
 
 - 채용공고 검색, 분야 필터와 상세 화면 표현
 - 로그인 입력과 로그인 상태 표시
-- 공고별 지원자 채팅 UI
+- 기업별 지원자 커뮤니티의 참여·목록·메시지 조회·나가기 UI
 - 자기소개서 작성과 브라우저 임시 저장
 - 화면 전환과 모달 상태 관리
 - 반응형 레이아웃, 키보드 조작과 접근성 속성
-- API 연결 실패 시 MVP 데모 데이터 표시
+- 공고 API 연결 실패 시 MVP 데모 데이터 표시
 
 프론트엔드는 다음의 최종 책임자가 아니다.
 
@@ -61,11 +61,11 @@ frontend/
 │   │   ├── App.jsx
 │   │   └── App.css
 │   ├── pages/
+│   │   ├── CommunityPage.jsx
 │   │   ├── CoverLetterPage.jsx
 │   │   └── JobsPage.jsx
 │   ├── features/
 │   │   ├── auth/LoginModal.jsx
-│   │   ├── chat/JobChat.jsx
 │   │   └── jobs/
 │   │       ├── JobCard.jsx
 │   │       ├── JobDetail.jsx
@@ -73,6 +73,7 @@ frontend/
 │   └── shared/
 │       └── api/careerpickApi.js
 └── test/
+    ├── community-api.test.js
     └── filter.test.js
 ```
 
@@ -81,7 +82,7 @@ frontend/
 - `main.jsx`: React 애플리케이션 진입점
 - `app`: 앱 셸, 공통 상태와 전역 스타일
 - `pages`: 화면 단위 조립과 배치
-- `features`: 인증, 채팅, 공고처럼 사용자가 수행하는 기능별 UI와 로직
+- `features`: 인증과 공고처럼 사용자가 수행하는 기능별 UI와 로직
 - `shared/api`: 도메인 UI와 분리된 HTTP 요청 코드
 - `test`: UI에서 분리된 순수 로직 단위 테스트
 
@@ -89,10 +90,10 @@ frontend/
 
 ## 5. 상태와 저장 기준
 
-- 서버 데이터: 채용공고, 사용자 정보와 공고별 채팅
-- React 상태: 현재 화면, 검색어, 분야, 모달, 선택 공고와 알림
+- 서버 데이터: 채용공고, 사용자 정보, 참여 중인 기업 방과 메시지
+- React 상태: 현재 화면, 검색어, 분야, 모달, 선택 공고·커뮤니티와 로그인 후 이동 의도
 - `localStorage`: 로그인 토큰, 공고별 자기소개서 초안
-- 데모 데이터: 백엔드 연결 실패 시 공고 목록과 채팅의 제한된 대체 화면
+- 데모 데이터: 공고 목록 조회 실패 시 사용하는 제한된 대체 화면
 
 브라우저 저장 데이터는 편의 기능일 뿐 신뢰 가능한 서버 데이터로 취급하지 않는다. 로그아웃 시 로그인 토큰과 사용자 상태를 함께 제거한다.
 
@@ -107,13 +108,15 @@ frontend/
 | 공고 조회·검색 | GET | `/api/jobs` |
 | 로그인 | POST | `/api/auth/login` |
 | 사용자 조회 | GET | `/api/auth/me` |
-| 공고 채팅 조회 | GET | `/api/jobs/{jobId}/messages` |
-| 공고 채팅 전송 | POST | `/api/jobs/{jobId}/messages` |
+| 공고를 통한 커뮤니티 참여 | PUT | `/api/jobs/{jobId}/community-membership` |
+| 참여 방 목록 | GET | `/api/community-rooms` |
+| 최신 메시지 조회 | GET | `/api/community-rooms/{roomId}/messages` |
+| 커뮤니티 나가기 | DELETE | `/api/community-rooms/{roomId}/membership` |
 
 - 성공하지 않은 HTTP 응답은 오류로 처리한다.
 - 공고 조회 실패 시 동일한 검색어와 분야를 샘플 데이터에도 적용한다.
 - 인증 확인 실패 시 저장된 토큰을 제거한다.
-- 채팅 전송 실패 시 작성 중인 입력을 임의로 제거하지 않는다.
+- 커뮤니티 API 실패 시 가짜 방이나 메시지로 대체하지 않는다.
 - API 응답 필드는 백엔드 DTO와 동일하게 유지한다.
 
 현재 API 주소는 `http://localhost:8080/api`로 고정되어 있다. 배포 전에는 빌드 환경변수로 분리해야 한다.

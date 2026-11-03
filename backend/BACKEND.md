@@ -31,7 +31,7 @@
 
 - 로그인 인증과 세션 검증
 - 채용공고 조회, 검색, 분야별 필터링
-- 공고별 채팅 조회와 메시지 저장
+- 기업별 커뮤니티 참여·나가기, 참여 방 목록과 최신 메시지 조회
 - 입력 검증, 트랜잭션과 데이터 정합성
 - MySQL 영속화와 Flyway 스키마 이력 관리
 
@@ -50,26 +50,35 @@ com.careerpick
 │   └── OpenApiConfig.java
 ├── controller
 │   ├── AuthController.java
-│   ├── ChatController.java
+│   ├── CommunityController.java
 │   └── JobController.java
 ├── dto
 │   ├── ChatMessage.java
+│   ├── CommunityRoomSummary.java
+│   ├── CommunityRoomView.java
 │   ├── JobResponse.java
+│   ├── JoinCommunityResponse.java
+│   ├── LastMessageView.java
 │   ├── LoginRequest.java
 │   ├── LoginResponse.java
-│   ├── SendMessageRequest.java
 │   └── UserView.java
 ├── entity
 │   ├── ChatMessageEntity.java
+│   ├── Company.java
+│   ├── CommunityRoom.java
+│   ├── CommunityRoomMember.java
 │   ├── Job.java
 │   └── User.java
 ├── repository
 │   ├── ChatMessageRepository.java
+│   ├── CompanyRepository.java
+│   ├── CommunityRoomMemberRepository.java
+│   ├── CommunityRoomRepository.java
 │   ├── JobRepository.java
 │   └── UserRepository.java
 └── service
     ├── AuthService.java
-    ├── ChatService.java
+    ├── CommunityService.java
     └── JobService.java
 ```
 
@@ -100,9 +109,12 @@ controller → service → repository → entity
 MySQL에는 다음 테이블을 저장한다.
 
 - `users`: 사용자와 BCrypt 비밀번호 해시
-- `jobs`: 채용공고
+- `companies`: 공고와 커뮤니티가 참조하는 회사명·로고·색상
+- `community_rooms`: `company_id` 유일 제약으로 보장하는 회사별 하나의 커뮤니티 채팅방
+- `community_room_members`: 사용자와 기업 채팅방의 참여 관계
+- `jobs`: `company_id`로 회사를 참조하는 채용공고
 - `job_tags`: 공고별 태그
-- `chat_messages`: 공고별 채팅 메시지
+- `chat_messages`: 기업 채팅방 메시지와 기존 출처 공고
 
 Redis에는 `auth:session:{token}` 형식으로 사용자 ID를 저장하며 TTL은 24시간이다.
 
@@ -112,8 +124,14 @@ Hibernate는 `ddl-auto=validate`로 매핑만 검증한다. 테이블 생성과 
 
 ```text
 src/main/resources/db/migration/
-└── V1__create_core_tables.sql
+├── V1__create_core_tables.sql
+├── V2__create_community_rooms.sql
+├── V3__create_community_room_members.sql
+├── V4__migrate_messages_to_community_rooms.sql
+└── V5__normalize_company_relationships.sql
 ```
+
+회사와 커뮤니티 방은 서로 다른 ID를 사용한다. `jobs.company_id`와 `community_rooms.company_id`가 회사를 참조하며, 공고 응답의 `companyId`·회사명·로고·색상은 연결된 회사에서 가져온다. 커뮤니티 참여·목록 응답은 방 `id`와 `companyId`를 별도로 제공한다.
 
 적용된 마이그레이션 파일은 수정하지 않는다. 변경이 필요하면 `V2__설명.sql`, `V3__설명.sql`처럼 새 파일을 추가한다.
 
@@ -141,6 +159,12 @@ Swagger UI의 `Authorize`에는 로그인 응답의 token 값만 입력한다. �
 
 ```bash
 ./gradlew test
+```
+
+Flyway와 Hibernate 매핑을 실제 MySQL에서 검증할 때는 임시 DB 래퍼를 사용한다. 래퍼는 `careerpick_verify_*` DB를 새로 만들고 검증이 끝나거나 실패하면 자동 삭제한다.
+
+```bash
+./scripts/with-verification-db.sh flyway-smoke
 ```
 
 새로운 서비스 로직에는 단위 테스트를 추가하고, DB 매핑이나 마이그레이션 변경에는 실제 MySQL을 사용하는 통합 테스트를 추가한다.

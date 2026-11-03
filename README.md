@@ -25,7 +25,7 @@ npm run dev
 - MySQL: localhost:3307 (`careerpick` / `careerpick`)
 - Redis: localhost:6379
 
-데모 로그인 계정은 `demo@careerpick.kr` / `career1234`입니다. 공고별 커뮤니티 메시지 작성은 로그인이 필요합니다.
+데모 로그인 계정은 `demo@careerpick.kr` / `career1234`입니다. 기업별 커뮤니티 참여와 조회는 로그인이 필요합니다.
 
 ## 테스트
 
@@ -36,8 +36,8 @@ cd frontend && npm test
 
 백엔드의 첫 실행에서 Gradle 8.14.6을 내려받고 체크섬을 검증합니다. 시스템에 Gradle을 별도로 설치할 필요는 없습니다.
 
-사용자, 채용공고, 공고별 채팅은 MySQL에 저장되고 로그인 세션은 Redis에서 24시간 유지됩니다.
-첫 실행 시 Flyway가 `users`, `jobs`, `job_tags`, `chat_messages` 테이블을 생성하고 애플리케이션이 데모 데이터를 추가합니다.
+사용자, 회사, 채용공고와 기업별 커뮤니티는 MySQL에 저장되고 로그인 세션은 Redis에서 24시간 유지됩니다.
+첫 실행 시 Flyway가 사용자, 회사, 공고, 기업 채팅방, 참여 관계와 메시지 테이블을 생성하고 애플리케이션이 회사부터 데모 데이터를 추가합니다.
 이후 스키마 변경은 `backend/src/main/resources/db/migration`에 다음 버전의 SQL 파일로 추가해야 합니다.
 
 기존에 Hibernate가 만든 로컬 테이블이 있다면 필요한 데이터를 먼저 백업한 뒤 최초 전환 시 볼륨을 초기화하세요. 아래 명령은 로컬 MySQL과 Redis 데이터를 모두 삭제합니다.
