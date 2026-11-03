@@ -4,6 +4,7 @@
 
 ## 1. 작업 개요
 
+- 유형: `FEATURE`
 - 요구사항 문서: `community-requirements.md`
 - 기술 설계 문서: `design.md`
 - 선행 작업: T-01 기업 채팅방 식별자와 공고 연결

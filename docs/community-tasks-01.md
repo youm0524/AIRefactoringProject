@@ -4,6 +4,7 @@
 
 ## 1. 작업 개요
 
+- 유형: `FEATURE`
 - 요구사항 문서: `community-requirements.md`
 - 기술 설계 문서: `design.md`
 - 목표: 기업별 커뮤니티 기능을 작고 검증 가능한 단위로 한 개씩 구현한다.
