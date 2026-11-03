@@ -64,12 +64,14 @@ com.careerpick
 │   └── UserView.java
 ├── entity
 │   ├── ChatMessageEntity.java
+│   ├── Company.java
 │   ├── CommunityRoom.java
 │   ├── CommunityRoomMember.java
 │   ├── Job.java
 │   └── User.java
 ├── repository
 │   ├── ChatMessageRepository.java
+│   ├── CompanyRepository.java
 │   ├── CommunityRoomMemberRepository.java
 │   ├── CommunityRoomRepository.java
 │   ├── JobRepository.java
@@ -107,9 +109,10 @@ controller → service → repository → entity
 MySQL에는 다음 테이블을 저장한다.
 
 - `users`: 사용자와 BCrypt 비밀번호 해시
-- `community_rooms`: 기업별 하나의 커뮤니티 채팅방
+- `companies`: 공고와 커뮤니티가 참조하는 회사명·로고·색상
+- `community_rooms`: `company_id` 유일 제약으로 보장하는 회사별 하나의 커뮤니티 채팅방
 - `community_room_members`: 사용자와 기업 채팅방의 참여 관계
-- `jobs`: 채용공고와 필수 기업 채팅방 연결
+- `jobs`: `company_id`로 회사를 참조하는 채용공고
 - `job_tags`: 공고별 태그
 - `chat_messages`: 기업 채팅방 메시지와 기존 출처 공고
 
@@ -124,8 +127,11 @@ src/main/resources/db/migration/
 ├── V1__create_core_tables.sql
 ├── V2__create_community_rooms.sql
 ├── V3__create_community_room_members.sql
-└── V4__migrate_messages_to_community_rooms.sql
+├── V4__migrate_messages_to_community_rooms.sql
+└── V5__normalize_company_relationships.sql
 ```
+
+회사와 커뮤니티 방은 서로 다른 ID를 사용한다. `jobs.company_id`와 `community_rooms.company_id`가 회사를 참조하며, 공고 응답의 `companyId`·회사명·로고·색상은 연결된 회사에서 가져온다. 커뮤니티 참여·목록 응답은 방 `id`와 `companyId`를 별도로 제공한다.
 
 적용된 마이그레이션 파일은 수정하지 않는다. 변경이 필요하면 `V2__설명.sql`, `V3__설명.sql`처럼 새 파일을 추가한다.
 

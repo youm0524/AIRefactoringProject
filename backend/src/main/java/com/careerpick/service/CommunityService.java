@@ -40,9 +40,11 @@ public class CommunityService {
         Job job = jobService.findById(jobId);
         if (job == null) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "공고를 찾을 수 없습니다.");
 
-        CommunityRoom room = job.communityRoom();
+        CommunityRoom room = rooms.findByCompanyId(job.company().id())
+            .orElseThrow(() -> new IllegalStateException("기업 채팅방 연결이 없습니다."));
         members.join(user.id(), room.id());
-        return new JoinCommunityResponse(new CommunityRoomView(room.id(), room.companyName()));
+        return new JoinCommunityResponse(new CommunityRoomView(
+            room.id(), room.company().id(), room.company().name()));
     }
 
     @Transactional
@@ -75,7 +77,8 @@ public class CommunityService {
         CommunityRoom room = member.room();
         LastMessageView lastMessage = messages.findTop1ByRoomIdOrderByCreatedAtDescIdDesc(room.id()).stream()
             .findFirst().map(this::toLastMessage).orElse(null);
-        return new CommunityRoomSummary(room.id(), room.companyName(), member.joinedAt(), lastMessage);
+        return new CommunityRoomSummary(
+            room.id(), room.company().id(), room.company().name(), member.joinedAt(), lastMessage);
     }
 
     private LastMessageView toLastMessage(ChatMessageEntity message) {

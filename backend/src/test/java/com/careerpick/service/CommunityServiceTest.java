@@ -2,6 +2,7 @@ package com.careerpick.service;
 
 import com.careerpick.dto.JoinCommunityResponse;
 import com.careerpick.entity.ChatMessageEntity;
+import com.careerpick.entity.Company;
 import com.careerpick.entity.CommunityRoom;
 import com.careerpick.entity.CommunityRoomMember;
 import com.careerpick.entity.Job;
@@ -30,11 +31,13 @@ class CommunityServiceTest {
     @Test void joinsTheRoomConnectedToTheJob() {
         CommunityRoom room = room();
         when(authService.requireUserEntity("Bearer token")).thenReturn(user);
-        when(jobService.findById(10)).thenReturn(job(room));
+        when(jobService.findById(10)).thenReturn(job(room.company()));
+        when(rooms.findByCompanyId(30)).thenReturn(Optional.of(room));
 
         JoinCommunityResponse response = service.join(10, "Bearer token");
 
         assertThat(response.room().id()).isEqualTo(20);
+        assertThat(response.room().companyId()).isEqualTo(30);
         assertThat(response.room().companyName()).isEqualTo("네오테크");
         verify(members).join(1, 20);
     }
@@ -114,6 +117,7 @@ class CommunityServiceTest {
         var result = service.rooms("Bearer token");
 
         assertThat(result).extracting(roomSummary -> roomSummary.id()).containsExactly(20L, 21L, 22L, 23L);
+        assertThat(result.get(0).companyId()).isEqualTo(30);
     }
 
     private User user() {
@@ -127,7 +131,9 @@ class CommunityServiceTest {
     }
 
     private CommunityRoom room(long id, String companyName) {
-        CommunityRoom room = new CommunityRoom(companyName);
+        Company company = new Company(companyName, companyName.substring(0, 1), "#000000");
+        ReflectionTestUtils.setField(company, "id", id + 10);
+        CommunityRoom room = new CommunityRoom(company);
         ReflectionTestUtils.setField(room, "id", id);
         return room;
     }
@@ -146,7 +152,7 @@ class CommunityServiceTest {
         return message;
     }
 
-    private Job job(CommunityRoom room) {
-        return new Job(room, "네오테크", "N", "#6556df", "개발자 채용", "개발", "신입", "서울", "D-3", List.of("백엔드"));
+    private Job job(Company company) {
+        return new Job(company, "개발자 채용", "개발", "신입", "서울", "D-3", List.of("백엔드"));
     }
 }

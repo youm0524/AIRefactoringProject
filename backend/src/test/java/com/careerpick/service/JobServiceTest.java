@@ -1,6 +1,6 @@
 package com.careerpick.service;
 
-import com.careerpick.entity.CommunityRoom;
+import com.careerpick.entity.Company;
 import com.careerpick.entity.Job;
 import com.careerpick.repository.JobRepository;
 import org.junit.jupiter.api.Test;
@@ -22,8 +22,10 @@ class JobServiceTest {
     }
 
     private Job job(long id, String company, String title, String category, String type, List<String> tags) {
-        Job job = new Job(new CommunityRoom(company), company, company.substring(0, 1), "#000000", title,
-            category, type, "서울", "D-3", tags);
+        Company companyEntity = new Company(company, company.substring(0, 1), "#000000");
+        ReflectionTestUtils.setField(companyEntity, "id", id + 10);
+        Job job = new Job(companyEntity, title, category, type,
+            "서울", "D-3", tags);
         ReflectionTestUtils.setField(job, "id", id);
         return job;
     }
@@ -37,5 +39,16 @@ class JobServiceTest {
     @Test void filtersByCategory() {
         useSampleJobs();
         assertThat(service.find("", "개발")).isNotEmpty().allMatch(job -> job.category().equals("개발"));
+    }
+
+    @Test void returnsCompanyFieldsFromTheCompanyEntity() {
+        useSampleJobs();
+
+        var result = service.find("네오", "전체").get(0);
+
+        assertThat(result.companyId()).isEqualTo(11);
+        assertThat(result.company()).isEqualTo("네오테크");
+        assertThat(result.logo()).isEqualTo("네");
+        assertThat(result.color()).isEqualTo("#000000");
     }
 }

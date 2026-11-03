@@ -5,21 +5,23 @@ import java.time.Instant;
 
 @Entity
 @Table(name = "community_rooms", uniqueConstraints =
-    @UniqueConstraint(name = "uk_community_rooms_company_name", columnNames = "company_name"))
+    @UniqueConstraint(name = "uk_community_rooms_company_id", columnNames = "company_id"))
 public class CommunityRoom {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-    @Column(name = "company_name", nullable = false, length = 100) private String companyName;
+    @OneToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "company_id", nullable = false, unique = true)
+    private Company company;
     @Column(name = "created_at", nullable = false, updatable = false) private Instant createdAt;
 
     protected CommunityRoom() {}
 
-    public CommunityRoom(String companyName) {
-        this.companyName = companyName;
+    public CommunityRoom(Company company) {
+        this.company = company;
         this.createdAt = Instant.now();
     }
 
     public long id() { return id; }
-    public String companyName() { return companyName; }
+    public Company company() { return company; }
     public Instant createdAt() { return createdAt; }
 }
