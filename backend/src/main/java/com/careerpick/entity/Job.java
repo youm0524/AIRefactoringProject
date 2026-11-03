@@ -7,18 +7,14 @@ import java.util.List;
 @Entity
 @Table(name = "jobs", indexes = {
     @Index(name = "idx_jobs_category", columnList = "category"),
-    @Index(name = "idx_jobs_company", columnList = "company"),
-    @Index(name = "idx_jobs_community_room_id", columnList = "community_room_id")
+    @Index(name = "idx_jobs_company_id", columnList = "company_id")
 })
 public class Job {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "community_room_id", nullable = false)
-    private CommunityRoom communityRoom;
-    @Column(nullable = false, length = 100) private String company;
-    @Column(nullable = false, length = 10) private String logo;
-    @Column(nullable = false, length = 20) private String color;
+    @JoinColumn(name = "company_id", nullable = false)
+    private Company company;
     @Column(nullable = false, length = 200) private String title;
     @Column(nullable = false, length = 30) private String category;
     @Column(nullable = false, length = 30) private String type;
@@ -32,12 +28,9 @@ public class Job {
 
     protected Job() {}
 
-    public Job(CommunityRoom communityRoom, String company, String logo, String color, String title, String category,
-               String type, String location, String deadline, List<String> tags) {
-        this.communityRoom = communityRoom;
+    public Job(Company company, String title, String category, String type, String location, String deadline,
+               List<String> tags) {
         this.company = company;
-        this.logo = logo;
-        this.color = color;
         this.title = title;
         this.category = category;
         this.type = type;
@@ -47,10 +40,7 @@ public class Job {
     }
 
     public long id() { return id; }
-    public CommunityRoom communityRoom() { return communityRoom; }
-    public String company() { return company; }
-    public String logo() { return logo; }
-    public String color() { return color; }
+    public Company company() { return company; }
     public String title() { return title; }
     public String category() { return category; }
     public String type() { return type; }
@@ -59,10 +49,7 @@ public class Job {
     public List<String> tags() { return List.copyOf(tags); }
 
     public long getId() { return id(); }
-    public CommunityRoom getCommunityRoom() { return communityRoom(); }
-    public String getCompany() { return company(); }
-    public String getLogo() { return logo(); }
-    public String getColor() { return color(); }
+    public Company getCompany() { return company(); }
     public String getTitle() { return title(); }
     public String getCategory() { return category(); }
     public String getType() { return type(); }
