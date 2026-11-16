@@ -49,8 +49,13 @@ verification_v5=$(MYSQL_PWD=$DB_PASSWORD mysql \
     -h"$VERIFICATION_MYSQL_HOST" -P"$VERIFICATION_MYSQL_PORT" -u"$DB_USERNAME" "$VERIFICATION_DB_NAME" \
     --batch --skip-column-names \
     -e "SELECT COUNT(*) FROM flyway_schema_history WHERE version = '5' AND success = 1;")
+verification_v6=$(MYSQL_PWD=$DB_PASSWORD mysql \
+    -h"$VERIFICATION_MYSQL_HOST" -P"$VERIFICATION_MYSQL_PORT" -u"$DB_USERNAME" "$VERIFICATION_DB_NAME" \
+    --batch --skip-column-names \
+    -e "SELECT COUNT(*) FROM flyway_schema_history WHERE version = '6' AND success = 1;")
 
-if [[ $verification_migrations -eq 0 || $verification_failures -ne 0 || $verification_v5 -ne 1 ]]; then
+if [[ $verification_migrations -eq 0 || $verification_failures -ne 0 ||
+      $verification_v5 -ne 1 || $verification_v6 -ne 1 ]]; then
     echo "Flyway 적용 결과가 올바르지 않습니다: 성공 ${verification_migrations}, 실패 ${verification_failures}" >&2
     exit 1
 fi
@@ -68,7 +73,8 @@ read -r verification_companies verification_jobs verification_rooms verification
                 (SELECT COUNT(*) FROM information_schema.columns
                     WHERE table_schema = DATABASE()
                       AND ((table_name = 'jobs' AND column_name IN ('company', 'logo', 'color', 'community_room_id'))
-                        OR (table_name = 'community_rooms' AND column_name = 'company_name')));
+                        OR (table_name = 'community_rooms' AND column_name = 'company_name')
+                        OR (table_name = 'chat_messages' AND column_name = 'source_job_id')));
         "
 )
 

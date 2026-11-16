@@ -8,7 +8,7 @@
 - 변경일: 2026-11-03
 - 기준 요구사항: [community-requirements.md](./community-requirements.md)
 - 참고 기록: [community-technical-decisions.md](./community-technical-decisions.md)
-- 범위: 회사 관계 정규화, 기업별 채팅방 참여, 목록, 메시지 조회·송수신, 나가기, 기존 메시지 마이그레이션
+- 범위: 회사 관계 정규화, 기업별 채팅방 참여, 목록, 메시지 조회·송수신, 나가기
 
 이 문서는 승인된 요구사항을 현재 코드베이스에 적용하기 위한 기술 설계다. 구현 순서와 작업 분할은 설계 승인 후 별도로 작성한다.
 
@@ -23,7 +23,7 @@
 - MySQL 8.4와 Flyway가 영속 데이터와 스키마 이력을 관리한다.
 - `users`, `companies`, `jobs`, `job_tags`, `community_rooms`, `community_room_members`, `chat_messages` 테이블이 존재한다.
 - 회사는 독립 `Company` 엔티티이며 공고와 기업 채팅방이 `company_id`로 참조한다.
-- `chat_messages.room_id`가 메시지를 기업 방별로 구분하고 nullable `source_job_id`가 기존 출처 공고를 보존한다.
+- `chat_messages.room_id`가 메시지를 기업 방별로 구분한다.
 - 메시지에는 nullable `user_id`, 작성 당시 이름인 `author`, 최대 120자의 `text`, UTC `created_at`이 저장된다.
 - 메시지 조회 API는 로그인과 방 참여 권한을 확인하고 최신 50개를 오래된 순서로 반환한다.
 - 메시지 전송 API와 WebSocket은 아직 구현되지 않았다.
@@ -107,10 +107,6 @@ Redis 분산 잠금은 사용하지 않는다. 권한의 원본과 메시지 트
 인증할 때 Redis 세션의 남은 TTL을 읽고 해당 시각에 연결을 닫는 타이머를 설정한다. 메시지 전송 시에는 세션과 참여 관계를 다시 검증한다.
 
 현재 서버 로그아웃이나 세션 강제 폐기 기능은 없으므로 주기적인 Redis 조회는 추가하지 않는다. 해당 기능이 생기면 세션 폐기 이벤트 또는 주기 검증을 추가한다.
-
-### 3.6 기존 작성자는 참여자로 이관한다
-
-기존 메시지에 `user_id`가 있으면 해당 사용자를 메시지가 병합되는 기업 채팅방의 참여자로 등록한다. `user_id IS NULL`인 초기·익명 메시지는 참여 관계를 만들지 않는다.
 
 ## 4. 시스템 구성과 책임
 
@@ -222,7 +218,6 @@ erDiagram
     }
     CHAT_MESSAGE {
         BIGINT id PK
-        BIGINT source_job_id FK
         BIGINT room_id FK
         BIGINT user_id FK
         VARCHAR client_message_id
@@ -235,7 +230,7 @@ erDiagram
 - `Company`와 `CommunityRoom`은 각각 독립된 ID를 가진다.
 - `community_rooms.company_id`의 UNIQUE 제약으로 회사당 방 하나를 보장한다.
 - `community_room_members`는 `(user_id, room_id)` 복합 UNIQUE 제약을 가진다.
-- `chat_messages.source_job_id`, `user_id`, `client_message_id`는 nullable이다.
+- `chat_messages.user_id`, `client_message_id`는 nullable이다.
 - Redis 로그인 세션은 MySQL 엔티티가 아니므로 ERD에 포함하지 않는다.
 
 ### 5.2 `companies`
@@ -310,7 +305,6 @@ erDiagram
 | 컬럼 | 타입 | 제약 | 설명 |
 | --- | --- | --- | --- |
 | `id` | BIGINT | PK, AUTO_INCREMENT | 메시지 ID |
-| `source_job_id` | BIGINT | NULL, FK | 기존 메시지의 출처 공고 보존용 |
 | `room_id` | BIGINT | NOT NULL, FK | 메시지가 속한 기업 채팅방 |
 | `user_id` | BIGINT | NULL, FK | 인증 작성자, 기존 익명 메시지는 NULL |
 | `client_message_id` | VARCHAR(36) | NULL | WebSocket 재전송 중복 방지 |
@@ -321,7 +315,6 @@ erDiagram
 - `(room_id, created_at DESC, id DESC)` 인덱스로 최신 50개와 최근 활동 조회를 지원한다.
 - `(user_id, client_message_id)`에 유일 제약을 둔다. 기존 NULL 값은 여러 건을 허용한다.
 - 같은 `client_message_id`가 다시 도착하면 새 메시지를 만들지 않고 기존 저장 결과를 반환한다.
-- `source_job_id`는 메시지 범위나 권한 판정에 사용하지 않는다. 데이터 손실 없는 전환과 감사 용도로만 남긴다.
 
 ### 5.9 방 목록 정렬
 
@@ -687,7 +680,7 @@ REST 오류는 다음 형식으로 통일한다.
 - 메시지 응답 유실 후 재전송
   - `(user_id, client_message_id)`로 기존 메시지를 반환한다.
 
-## 13. 기존 데이터 마이그레이션
+## 13. 데이터베이스 마이그레이션
 
 새 Flyway 버전에서 다음 불변 조건을 만족하도록 수행한다. 적용된 `V1`은 수정하지 않는다.
 
@@ -695,11 +688,12 @@ REST 오류는 다음 형식으로 통일한다.
 2. `jobs.company`가 정확히 같은 공고들을 하나의 방으로 생성한다.
 3. `jobs.community_room_id`를 채우고 NOT NULL FK를 설정한다.
 4. `chat_messages.room_id`를 기존 `job_id → jobs.community_room_id` 경로로 채운다.
-5. 기존 `job_id`를 nullable `source_job_id`로 보존하고 방 기준 인덱스로 교체한다.
+5. V4에서 기존 `job_id`를 임시 `source_job_id`로 바꾸고 방 기준 인덱스로 교체한다.
 6. `community_room_members`를 생성한다.
 7. 기존 메시지의 non-null `(user_id, room_id)` 조합을 중복 없이 참여 관계로 이관한다.
 8. 참여 시각은 해당 사용자의 해당 방 최초 메시지 시각을 사용한다.
 9. `client_message_id`와 관련 유일 제약을 추가한다.
+10. 보존할 기존 데이터가 없는 개발 단계에서 V6로 사용하지 않는 `source_job_id` FK와 컬럼을 제거한다.
 
 ### 13.1 검증 쿼리 기준
 
@@ -709,9 +703,10 @@ REST 오류는 다음 형식으로 통일한다.
 - 같은 회사명 공고의 방 ID는 하나여야 한다.
 - 서로 다른 정확 문자열 회사명은 자동 병합되지 않아야 한다.
 - 참여 관계에 `(user_id, room_id)` 중복이 없어야 한다.
-- 기존 메시지의 ID, 본문, 작성자, 작성 시각과 출처 공고 ID가 보존돼야 한다.
+- 메시지의 ID, 본문, 작성자와 작성 시각은 V6 전후에 바뀌지 않아야 한다.
+- 최종 스키마에 `source_job_id`가 없어야 한다.
 
-운영 적용 전 DB 백업과 위 검증 결과 확인이 필요하다. 마이그레이션은 기존 메시지를 삭제하지 않으며 `source_job_id`를 남겨 수동 복구 근거를 보존한다.
+V6는 메시지를 삭제하지 않고 사용하지 않는 출처 공고 관계만 제거한다.
 
 개발 초기 데이터 생성기는 회사를 먼저 생성하고 방과 공고를 연결한 뒤 기업 방 메시지를 생성해야 한다. 빈 DB에도 Flyway 적용 후 초기화가 성공해야 한다.
 
@@ -835,7 +830,6 @@ REST 오류는 다음 형식으로 통일한다.
 | DB 저장 실패 시 미전송 | 커밋 이후 발행 경계 |
 | Redis 실패 표시 | `STORED_BUT_NOT_BROADCAST` |
 | 재연결 복구 | 목록과 선택 방 최신 50개 재조회 |
-| 기존 메시지 병합 | 최초 exact company 기준 room backfill 후 회사 FK 이관 |
 | 데스크톱·모바일 UI | 2열 및 목록/채팅 전환 |
 
 ## 17. 설계 자체 검증
@@ -856,7 +850,7 @@ REST 오류는 다음 형식으로 통일한다.
 - 방과 참여 중복은 DB 유일 제약으로 막는다.
 - 나가기와 전송은 참여 행 잠금으로 순서를 보장한다.
 - 메시지는 DB 커밋 전에 발행되지 않는다.
-- 기존 메시지와 출처 공고 ID를 삭제하지 않는다.
+- V6는 메시지 행을 유지하고 사용하지 않는 출처 공고 ID만 제거한다.
 
 ### 17.4 장애와 동시성
 

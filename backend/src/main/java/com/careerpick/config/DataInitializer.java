@@ -48,8 +48,8 @@ public class DataInitializer implements ApplicationRunner {
             jobs.findAllByOrderByIdAsc().forEach(job -> {
                 CommunityRoom room = rooms.findByCompanyId(job.company().id()).orElseThrow();
                 messages.saveAll(List.of(
-                    new ChatMessageEntity(room, job, null, "익명지원자", job.company().name() + " 지원하시는 분들 계신가요?"),
-                    new ChatMessageEntity(room, job, null, "취준메이트", "네! 전형 정보 같이 나눠요 🙌")
+                    new ChatMessageEntity(room, null, "익명지원자", job.company().name() + " 지원하시는 분들 계신가요?"),
+                    new ChatMessageEntity(room, null, "취준메이트", "네! 전형 정보 같이 나눠요 🙌")
                 ));
             });
         }

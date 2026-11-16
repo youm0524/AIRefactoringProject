@@ -117,7 +117,7 @@ MySQL에는 다음 테이블을 저장한다.
 - `community_room_members`: 사용자와 기업 채팅방의 참여 관계
 - `jobs`: `company_id`로 회사를 참조하는 채용공고
 - `job_tags`: 공고별 태그
-- `chat_messages`: 기업 채팅방 메시지와 기존 출처 공고
+- `chat_messages`: 기업 채팅방 메시지
 - `cover_letters`: 사용자·공고별 자기소개서 초안 1개와 생성·수정 시각
 - `cover_letter_items`: 초안 생성 당시 질문, 문항 순서·글자 제한과 답변
 
@@ -134,20 +134,19 @@ Redis에는 `auth:session:{token}` 형식으로 사용자 ID를 저장하며 TTL
 Hibernate는 `ddl-auto=validate`로 매핑만 검증한다. 테이블 생성과 변경은 Flyway만 담당한다.
 
 ```text
-
 src/main/resources/db/migration/
 ├── V1__create_core_tables.sql
 ├── V2__create_cover_letter_tables.sql
 ├── V3__create_community_rooms.sql
 ├── V4__create_community_room_members.sql
 ├── V5__migrate_messages_to_community_rooms.sql
-└── V6__normalize_company_relationships.sql
-
-그리고 아래 설명도 유지합니다.
+├── V6__normalize_company_relationships.sql
+└── V7__remove_chat_message_source_job.sql
+```
 
 회사와 커뮤니티 방은 서로 다른 ID를 사용한다. `jobs.company_id`와 `community_rooms.company_id`가 회사를 참조하며, 공고 응답의 `companyId`·회사명·로고·색상은 연결된 회사에서 가져온다. 커뮤니티 참여·목록 응답은 방 `id`와 `companyId`를 별도로 제공한다.
 
-적용된 마이그레이션 파일은 수정하지 않는다. 다음 변경은 `V7__설명.sql`처럼 새 파일로 추가한다.
+적용된 마이그레이션 파일은 수정하지 않는다. 다음 변경은 `V8__설명.sql`처럼 새 파일로 추가한다.
 
 ## 8. 로컬 실행과 검증
 

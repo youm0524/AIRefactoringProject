@@ -38,6 +38,7 @@ snapshot_before=$(MYSQL_PWD=$DB_PASSWORD "${mysql_command[@]}" --batch --skip-co
 ")
 
 MYSQL_PWD=$DB_PASSWORD "${mysql_command[@]}" < "$migration_dir/V5__normalize_company_relationships.sql"
+MYSQL_PWD=$DB_PASSWORD "${mysql_command[@]}" < "$migration_dir/V6__remove_chat_message_source_job.sql"
 
 snapshot_after=$(MYSQL_PWD=$DB_PASSWORD "${mysql_command[@]}" --batch --skip-column-names --execute="
     SELECT CONCAT_WS('|',
@@ -61,7 +62,8 @@ read -r companies shared_company mismatches duplicate_rooms legacy_columns < <(
             (SELECT COUNT(*) FROM information_schema.columns
                 WHERE table_schema = DATABASE()
                   AND ((table_name = 'jobs' AND column_name IN ('company', 'logo', 'color', 'community_room_id'))
-                    OR (table_name = 'community_rooms' AND column_name = 'company_name')));
+                    OR (table_name = 'community_rooms' AND column_name = 'company_name')
+                    OR (table_name = 'chat_messages' AND column_name = 'source_job_id')));
     "
 )
 
@@ -71,4 +73,4 @@ if [[ $snapshot_before != "$snapshot_after" || $companies -ne 2 || $shared_compa
     exit 1
 fi
 
-echo "V5 공고·방·참여·메시지 수와 ID 보존, 회사 관계 이관 확인"
+echo "V5/V6 공고·방·참여·메시지 수와 ID 보존, 회사 관계 이관과 출처 공고 컬럼 제거 확인"
