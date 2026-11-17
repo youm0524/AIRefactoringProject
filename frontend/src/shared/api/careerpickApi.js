@@ -16,12 +16,6 @@ const withAuth = token => ({Authorization: `Bearer ${token}`})
 export const getJobs = (query = '', category = '전체') =>
   fetch(`${API_URL}/jobs?query=${encodeURIComponent(query)}&category=${encodeURIComponent(category)}`).then(parseJson)
 
-export const login = (email, password) => fetch(`${API_URL}/auth/login`, {
-  method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({email, password})
-}).then(parseJson)
-
-export const getMe = token => fetch(`${API_URL}/auth/me`, {headers: withAuth(token)}).then(parseJson)
-
 export const joinCommunity = (jobId, token) => fetch(`${API_URL}/jobs/${jobId}/community-membership`, {
   method: 'PUT', headers: withAuth(token)
 }).then(parseJson)
@@ -37,6 +31,7 @@ export const getCommunityMessages = (roomId, token) => fetch(`${API_URL}/communi
 export const leaveCommunity = (roomId, token) => fetch(`${API_URL}/community-rooms/${roomId}/membership`, {
   method: 'DELETE', headers: withAuth(token)
 }).then(parseJson)
+
 export const login = (email, password, {signal} = {}) => fetch(`${API_URL}/auth/login`, {
   method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({email, password}), signal
 }).then(parseJson)
@@ -69,3 +64,18 @@ export const deleteCoverLetter = (coverLetterId, token, {signal} = {}) =>
   fetch(`${API_URL}/cover-letters/${encodeURIComponent(coverLetterId)}`, {
     method: 'DELETE', headers: {Authorization: `Bearer ${token}`}, signal
   }).then(parseJson)
+
+export const openCommunitySocket = (token, {onFrame, onClose, onError}) => {
+  const socket = new WebSocket(API_URL.replace(/^http/, 'ws').replace('/api', '/ws/community'))
+  socket.addEventListener('open', () => socket.send(JSON.stringify({type: 'AUTH', token})))
+  socket.addEventListener('message', event => {
+    try {
+      onFrame(JSON.parse(event.data))
+    } catch {
+      onError('실시간 응답을 처리하지 못했습니다.')
+    }
+  })
+  socket.addEventListener('close', onClose)
+  socket.addEventListener('error', () => onError('실시간 연결을 사용할 수 없습니다.'))
+  return socket
+}

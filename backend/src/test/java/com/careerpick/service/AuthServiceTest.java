@@ -11,7 +11,9 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.server.ResponseStatusException;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
@@ -48,6 +50,20 @@ class AuthServiceTest {
         when(redis.opsForValue()).thenReturn(values);
         assertThatThrownBy(() -> service.requireUser(null)).isInstanceOf(ResponseStatusException.class);
         assertThatThrownBy(() -> service.requireUser("Bearer expired")).isInstanceOf(ResponseStatusException.class);
+    }
+
+    @Test void resolvesWebSocketSessionUntilRedisTokenExpiry() {
+        when(redis.opsForValue()).thenReturn(values);
+        when(values.get("auth:session:token")).thenReturn("1");
+        when(redis.getExpire("auth:session:token", TimeUnit.MILLISECONDS)).thenReturn(60_000L);
+        when(users.findById(1L)).thenReturn(Optional.of(user));
+        Instant before = Instant.now();
+
+        AuthService.AuthenticatedSession session = service.requireWebSocketSession("token");
+
+        assertThat(session.userId()).isEqualTo(1);
+        assertThat(session.userName()).isEqualTo("김커리");
+        assertThat(session.expiresAt()).isBetween(before.plusSeconds(59), Instant.now().plusSeconds(61));
     }
 
     private User testUser() {

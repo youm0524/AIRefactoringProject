@@ -22,7 +22,7 @@ class CoverLetterServiceTest {
     private final PlatformTransactionManager manager = mock(PlatformTransactionManager.class);
     private final CoverLetterService service = new CoverLetterService(letters, auth, jobs, manager);
     private final User user = new User("사용자", "test@test.kr", "hash");
-    private final Job job = new Job("기업", "C", "red", "공고", "개발", "신입", "서울", "D-1", List.of());
+    private final Job job = new Job(new Company("기업", "C", "red"), "공고", "개발", "신입", "서울", "D-1", List.of());
     @BeforeEach void setup() {
         ReflectionTestUtils.setField(user, "id", 1L);
         ReflectionTestUtils.setField(job, "id", 2L);

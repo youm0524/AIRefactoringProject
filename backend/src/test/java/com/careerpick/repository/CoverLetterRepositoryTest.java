@@ -2,6 +2,7 @@ package com.careerpick.repository;
 
 import com.careerpick.entity.CoverLetter;
 import com.careerpick.entity.CoverLetterItem;
+import com.careerpick.entity.Company;
 import com.careerpick.entity.Job;
 import com.careerpick.entity.User;
 import jakarta.persistence.EntityManager;
@@ -37,10 +38,12 @@ class CoverLetterRepositoryTest {
     @BeforeEach void setUp() {
         user = new User("사용자", "owner@test.kr", "hash");
         otherUser = new User("다른 사용자", "other@test.kr", "hash");
-        job = job("첫 공고");
-        otherJob = job("다른 공고");
+        Company company = new Company("기업", "C", "#6556df");
+        job = job(company, "첫 공고");
+        otherJob = job(company, "다른 공고");
         entityManager.persist(user);
         entityManager.persist(otherUser);
+        entityManager.persist(company);
         entityManager.persist(job);
         entityManager.persist(otherJob);
         entityManager.flush();
@@ -169,7 +172,7 @@ class CoverLetterRepositoryTest {
         jdbc.update("INSERT INTO cover_letters (user_id, job_id, created_at, updated_at) VALUES (?, ?, UTC_TIMESTAMP(6), UTC_TIMESTAMP(6))", userId, jobId);
     }
 
-    private Job job(String title) {
-        return new Job("기업", "C", "#6556df", title, "개발", "신입", "서울", "D-3", List.of());
+    private Job job(Company company, String title) {
+        return new Job(company, title, "개발", "신입", "서울", "D-3", List.of());
     }
 }

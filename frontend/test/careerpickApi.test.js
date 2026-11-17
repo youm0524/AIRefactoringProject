@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
   getCoverLetters, createCoverLetter, getCoverLetter, updateCoverLetter,
-  deleteCoverLetter, getJobs, getMessages, sendMessage, login, getMe
+  deleteCoverLetter, getJobs, login, getMe
 } from '../src/shared/api/careerpickApi.js'
 
 test('자기소개서 목록 요청은 인증·페이지 조건과 취소 신호를 전달한다', async t => {
@@ -65,15 +65,13 @@ test('네트워크 실패와 요청 취소를 성공 응답으로 바꾸지 않�
   }
 })
 
-test('기존 공고·인증·채팅 API의 성공 응답 처리를 유지한다', async t => {
-  const responses = [[], [], {id: 1}, {token: 'token', user: {id: 1}}, {id: 1, name: '사용자'}]
+test('기존 공고·인증 API의 성공 응답 처리를 유지한다', async t => {
+  const responses = [[], {token: 'token', user: {id: 1}}, {id: 1, name: '사용자'}]
   let index = 0
   t.mock.method(globalThis, 'fetch', async () => Response.json(responses[index++]))
   assert.deepEqual(await getJobs(), responses[0])
-  assert.deepEqual(await getMessages(1), responses[1])
-  assert.deepEqual(await sendMessage(1, '안녕하세요', 'token'), responses[2])
-  assert.deepEqual(await login('demo@careerpick.kr', 'password'), responses[3])
-  assert.deepEqual(await getMe('token'), responses[4])
+  assert.deepEqual(await login('demo@careerpick.kr', 'password'), responses[1])
+  assert.deepEqual(await getMe('token'), responses[2])
 })
 
 test('공고 ID로 생성 요청을 보내고 신규 201·기존 200의 상세를 반환한다', async t => {

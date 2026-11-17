@@ -14,7 +14,7 @@
 | Language | Java | 17 LTS |
 | Framework | Spring Boot | 3.5.7 |
 | Build | Gradle | 8.14.6 |
-| API | Spring MVC, Bean Validation | REST/JSON |
+| API | Spring MVC, Spring WebSocket, Bean Validation | REST/JSON, WebSocket/JSON |
 | API docs | springdoc-openapi, Swagger UI | OpenAPI 3, springdoc 2.8.17 |
 | Persistence | Spring Data JPA, Hibernate | 엔티티 매핑과 Repository |
 | Database | MySQL | 8.4 |
@@ -32,6 +32,7 @@
 - 로그인 인증과 세션 검증
 - 채용공고 조회, 검색, 분야별 필터링
 - 기업별 커뮤니티 참여·나가기, 참여 방 목록과 최신 메시지 조회
+- 커뮤니티 WebSocket 인증과 단일 서버 실시간 메시지 송수신
 - 입력 검증, 트랜잭션과 데이터 정합성
 - MySQL 영속화와 Flyway 스키마 이력 관리
 
@@ -47,7 +48,8 @@ com.careerpick
 ├── config
 │   ├── AppConfig.java
 │   ├── DataInitializer.java
-│   └── OpenApiConfig.java
+│   ├── OpenApiConfig.java
+│   └── WebSocketConfig.java
 ├── controller
 │   ├── AuthController.java
 │   ├── CommunityController.java
@@ -79,10 +81,13 @@ com.careerpick
 │   ├── CoverLetterRepository.java
 │   ├── JobRepository.java
 │   └── UserRepository.java
-└── service
+├── service
     ├── AuthService.java
+    ├── CommunityMessageService.java
     ├── CommunityService.java
     └── JobService.java
+└── websocket
+    └── CommunityWebSocketHandler.java
 ```
 
 테스트 패키지는 대상 클래스와 동일한 계층 구조를 따른다.
@@ -167,6 +172,8 @@ OpenAPI 명세와 Swagger UI는 백엔드 실행 후 다음 주소에서 확인�
 - OpenAPI YAML: `http://localhost:8080/v3/api-docs.yaml`
 
 Swagger UI의 `Authorize`에는 로그인 응답의 token 값만 입력한다. 배포 환경에서 문서를 공개하지 않으려면 `OPENAPI_ENABLED=false`를 설정한다.
+
+커뮤니티 실시간 연결은 `ws://localhost:8080/ws/community`를 사용한다. WebSocket은 OpenAPI 대상이 아니므로 Swagger UI에는 표시되지 않는다. 연결 후 5초 안에 `AUTH` 프레임을 보내고, 인증 뒤 `SEND_MESSAGE` 프레임을 전송한다. 전체 JSON 계약은 [커뮤니티 기술 설계](../docs/design.md#7-websocket-계약)를 따른다. T-06 전까지 실시간 전달 범위는 같은 백엔드 인스턴스에 연결된 사용자다.
 
 테스트는 다음 명령으로 실행한다.
 

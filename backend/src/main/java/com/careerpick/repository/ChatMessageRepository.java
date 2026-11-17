@@ -3,8 +3,10 @@ package com.careerpick.repository;
 import com.careerpick.entity.ChatMessageEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.List;
+import java.util.Optional;
 
 public interface ChatMessageRepository extends JpaRepository<ChatMessageEntity, Long> {
     List<ChatMessageEntity> findTop50ByRoomIdOrderByCreatedAtDescIdDesc(long roomId);
     List<ChatMessageEntity> findTop1ByRoomIdOrderByCreatedAtDescIdDesc(long roomId);
+    Optional<ChatMessageEntity> findByUserIdAndClientMessageId(long userId, String clientMessageId);
 }

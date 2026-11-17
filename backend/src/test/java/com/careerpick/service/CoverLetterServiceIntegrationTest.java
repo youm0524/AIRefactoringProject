@@ -41,9 +41,11 @@ class CoverLetterServiceIntegrationTest {
         var tx = new TransactionTemplate(manager);
         User owner = new User("작성자", UUID.randomUUID()+"@test.kr", "hash");
         User other = new User("다른 사용자", UUID.randomUUID()+"@test.kr", "hash");
-        Job first = job("첫 공고"), second = job("두 번째 공고");
+        Company company = new Company("기업", "C", "red");
+        Job first = job(company, "첫 공고"), second = job(company, "두 번째 공고");
         tx.executeWithoutResult(status -> {
             entityManager.persist(owner); entityManager.persist(other);
+            entityManager.persist(company);
             entityManager.persist(first); entityManager.persist(second);
         });
         when(auth.requireUserEntity("owner")).thenReturn(owner);
@@ -90,8 +92,11 @@ class CoverLetterServiceIntegrationTest {
         var tx = new TransactionTemplate(manager);
         User owner = new User("작성자", UUID.randomUUID()+"@test.kr", "hash");
         User other = new User("타인", UUID.randomUUID()+"@test.kr", "hash");
-        Job job = job("상세 검증 공고");
-        tx.executeWithoutResult(status -> { entityManager.persist(owner); entityManager.persist(other); entityManager.persist(job); });
+        Company company = new Company("기업", "C", "red");
+        Job job = job(company, "상세 검증 공고");
+        tx.executeWithoutResult(status -> {
+            entityManager.persist(owner); entityManager.persist(other); entityManager.persist(company); entityManager.persist(job);
+        });
         when(auth.requireUserEntity("owner")).thenReturn(owner);
         when(auth.requireUserEntity("other")).thenReturn(other);
         when(auth.requireUserEntity(null)).thenThrow(new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.UNAUTHORIZED));
@@ -170,7 +175,7 @@ class CoverLetterServiceIntegrationTest {
         assertThatThrownBy(action::run).isInstanceOfSatisfying(org.springframework.web.server.ResponseStatusException.class,
             exception -> assertThat(exception.getStatusCode().value()).isEqualTo(expected));
     }
-    private Job job(String title) {
-        return new Job("기업", "C", "red", title, "개발", "신입", "서울", "D-1", List.of());
+    private Job job(Company company, String title) {
+        return new Job(company, title, "개발", "신입", "서울", "D-1", List.of());
     }
 }

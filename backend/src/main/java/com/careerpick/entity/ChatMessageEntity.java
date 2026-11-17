@@ -24,8 +24,13 @@ public class ChatMessageEntity {
     protected ChatMessageEntity() {}
 
     public ChatMessageEntity(CommunityRoom room, User user, String author, String text) {
+        this(room, user, null, author, text);
+    }
+
+    public ChatMessageEntity(CommunityRoom room, User user, String clientMessageId, String author, String text) {
         this.room = room;
         this.user = user;
+        this.clientMessageId = clientMessageId;
         this.author = author;
         this.text = text;
         this.createdAt = Instant.now();
