@@ -87,6 +87,9 @@ com.careerpick
     ├── CommunityService.java
     └── JobService.java
 └── websocket
+    ├── CommunityWebSocketBroadcaster.java
+    ├── CommunityWebSocketConnections.java
+    ├── CommunityWebSocketFrameFactory.java
     └── CommunityWebSocketHandler.java
 ```
 
@@ -100,6 +103,7 @@ com.careerpick
 - `entity`: MySQL 영속 모델을 표현하며 DTO를 참조하지 않는다.
 - `dto`: API 요청과 응답 모델을 표현하며 엔티티를 외부에 직접 노출하지 않는다.
 - `config`: 기술 설정과 개발용 초기 데이터 구성을 담당한다.
+- `websocket`: WebSocket 프로토콜 처리, 현재 인스턴스의 연결 관리와 실시간 전달을 담당하며 DB 접근은 Service를 통한다.
 - Controller가 Repository를 직접 사용하지 않는다.
 - 한 도메인의 Service가 다른 도메인의 Repository를 직접 참조하지 않고 해당 Service를 통해 협력한다.
 - 사용하지 않는 계층이나 빈 패키지를 미리 만들지 않으며 역방향·순환 의존을 허용하지 않는다.

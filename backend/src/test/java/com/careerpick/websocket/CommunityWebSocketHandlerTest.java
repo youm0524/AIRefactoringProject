@@ -1,6 +1,5 @@
 package com.careerpick.websocket;
 
-import com.careerpick.repository.CommunityRoomMemberRepository;
 import com.careerpick.service.AuthService;
 import com.careerpick.service.CommunityMessageService;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -15,7 +14,6 @@ import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 import java.time.Instant;
-import java.util.Set;
 import java.util.concurrent.ScheduledFuture;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.*;
@@ -24,12 +22,14 @@ import static org.mockito.Mockito.*;
 class CommunityWebSocketHandlerTest {
     private final AuthService auth = mock(AuthService.class);
     private final CommunityMessageService messages = mock(CommunityMessageService.class);
-    private final CommunityRoomMemberRepository members = mock(CommunityRoomMemberRepository.class);
     private final TaskScheduler scheduler = mock(TaskScheduler.class);
     private final WebSocketSession session = mock(WebSocketSession.class);
     private final ScheduledFuture<?> future = mock(ScheduledFuture.class);
+    private final CommunityWebSocketConnections connections = new CommunityWebSocketConnections(
+        new ObjectMapper(), scheduler);
+    private final CommunityWebSocketBroadcaster broadcaster = mock(CommunityWebSocketBroadcaster.class);
     private final CommunityWebSocketHandler handler = new CommunityWebSocketHandler(
-        new ObjectMapper(), auth, messages, members, scheduler);
+        new ObjectMapper(), auth, messages, connections, broadcaster);
 
     @BeforeEach void setUp() {
         when(session.getId()).thenReturn("socket-1");
@@ -77,11 +77,12 @@ class CommunityWebSocketHandlerTest {
         Instant expiry = Instant.now().plusSeconds(60);
         when(auth.requireWebSocketSession("token"))
             .thenReturn(new AuthService.AuthenticatedSession(1, "김커리", "token", expiry));
+        CommunityMessageService.StoredMessage stored = new CommunityMessageService.StoredMessage(
+            30, 20, 1, "김커리", "안녕하세요", Instant.parse("2026-11-17T00:00:00Z"),
+            "8fb79fd8-c912-4aa2-a994-f10c13664570");
         when(messages.store(1, 20, "8fb79fd8-c912-4aa2-a994-f10c13664570", "안녕하세요"))
-            .thenReturn(new CommunityMessageService.StoredMessage(
-                30, 20, 1, "김커리", "안녕하세요", Instant.parse("2026-11-17T00:00:00Z"),
-                "8fb79fd8-c912-4aa2-a994-f10c13664570"));
-        when(members.findUserIdsByRoomIdAndUserIdIn(20, Set.of(1L))).thenReturn(Set.of(1L));
+            .thenReturn(stored);
+        when(broadcaster.broadcast(stored)).thenReturn(true);
 
         handler.handleTextMessage(session, new TextMessage("{\"type\":\"AUTH\",\"token\":\"token\"}"));
         handler.handleTextMessage(session, new TextMessage("""
@@ -90,9 +91,9 @@ class CommunityWebSocketHandlerTest {
             """));
 
         assertThat(sentFrames()).anyMatch(frame -> frame.contains("AUTHENTICATED"));
-        assertThat(sentFrames()).anyMatch(frame -> frame.contains("MESSAGE_CREATED"));
         assertThat(sentFrames()).anyMatch(frame -> frame.contains("SEND_RESULT") && frame.contains("PUBLISHED"));
         verify(messages).store(1, 20, "8fb79fd8-c912-4aa2-a994-f10c13664570", "안녕하세요");
+        verify(broadcaster).broadcast(stored);
     }
 
     @Test void doesNotPublishWhenMessageStorageFails() throws Exception {
@@ -108,7 +109,7 @@ class CommunityWebSocketHandlerTest {
             """));
 
         assertThat(sentFrames()).anyMatch(frame -> frame.contains("MESSAGE_STORE_FAILED"));
-        verifyNoInteractions(members);
+        verifyNoInteractions(broadcaster);
     }
 
     @Test void rejectsInvalidMessageFieldsBeforeStorage() throws Exception {

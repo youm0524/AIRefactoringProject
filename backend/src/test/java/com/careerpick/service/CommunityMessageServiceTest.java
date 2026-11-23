@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.server.ResponseStatusException;
 import java.util.Optional;
+import java.util.Set;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
@@ -57,6 +58,12 @@ class CommunityMessageServiceTest {
             .isInstanceOfSatisfying(ResponseStatusException.class,
                 exception -> assertThat(exception.getStatusCode().value()).isEqualTo(403));
         verifyNoInteractions(messages);
+    }
+
+    @Test void findsCurrentRecipientsAmongConnectedUsers() {
+        when(members.findUserIdsByRoomIdAndUserIdIn(20, Set.of(1L, 2L))).thenReturn(Set.of(1L));
+
+        assertThat(service.findRecipientUserIds(20, Set.of(1L, 2L))).containsExactly(1L);
     }
 
     private User user() {
