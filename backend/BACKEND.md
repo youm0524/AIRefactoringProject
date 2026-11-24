@@ -146,16 +146,12 @@ Hibernate는 `ddl-auto=validate`로 매핑만 검증한다. 테이블 생성과 
 src/main/resources/db/migration/
 ├── V1__create_core_tables.sql
 ├── V2__create_cover_letter_tables.sql
-├── V3__create_community_rooms.sql
-├── V4__create_community_room_members.sql
-├── V5__migrate_messages_to_community_rooms.sql
-├── V6__normalize_company_relationships.sql
-└── V7__remove_chat_message_source_job.sql
+└── V3__create_company_community_schema.sql
 ```
 
 회사와 커뮤니티 방은 서로 다른 ID를 사용한다. `jobs.company_id`와 `community_rooms.company_id`가 회사를 참조하며, 공고 응답의 `companyId`·회사명·로고·색상은 연결된 회사에서 가져온다. 커뮤니티 참여·목록 응답은 방 `id`와 `companyId`를 별도로 제공한다.
 
-적용된 마이그레이션 파일은 수정하지 않는다. 다음 변경은 `V8__설명.sql`처럼 새 파일로 추가한다.
+적용된 마이그레이션 파일은 수정하지 않는다. 다음 변경은 `V4__설명.sql`처럼 새 파일로 추가한다.
 
 ## 8. 로컬 실행과 검증
 

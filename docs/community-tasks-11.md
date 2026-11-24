@@ -59,5 +59,5 @@
 ## 실행 결과
 
 - 변경 내용: Handler에서 연결 Map·타이머·동시 전송을 `CommunityWebSocketConnections`로, 참여자 필터링과 실시간 전달을 `CommunityWebSocketBroadcaster`로, 응답 프레임 생성을 `CommunityWebSocketFrameFactory`로 분리했다. 참여자 조회는 `CommunityMessageService`를 거쳐 Repository에 도달한다.
-- 검증 결과: 백엔드 테스트 26개와 프론트엔드 테스트 6개·빌드가 통과했다. 임시 MySQL에서 Flyway 6개 적용과 기존 참여·목록·조회·나가기·재참여 API 회귀를 확인했고 `git diff --check`가 통과했다.
+- 검증 결과: 백엔드 테스트 26개와 프론트엔드 테스트 6개·빌드가 통과했다. 임시 MySQL에서 Flyway 3개 적용과 기존 참여·목록·조회·나가기·재참여 API 회귀를 확인했고 `git diff --check`가 통과했다.
 - 남은 문제: T-06의 Redis 발행 추상화는 실제 두 번째 구현이 생길 때 도입한다.
