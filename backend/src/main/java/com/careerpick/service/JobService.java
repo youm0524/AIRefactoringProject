@@ -28,11 +28,11 @@ public class JobService {
     }
 
     private String searchable(Job job) {
-        return String.join(" ", job.company(), job.title(), job.category(), job.type(), String.join(" ", job.tags())).toLowerCase(Locale.ROOT);
+        return String.join(" ", job.company().name(), job.title(), job.category(), job.type(), String.join(" ", job.tags())).toLowerCase(Locale.ROOT);
     }
 
     private JobResponse toResponse(Job job) {
-        return new JobResponse(job.id(), job.company(), job.logo(), job.color(), job.title(), job.category(),
-            job.type(), job.location(), job.deadline(), job.tags());
+        return new JobResponse(job.id(), job.company().id(), job.company().name(), job.company().logo(),
+            job.company().color(), job.title(), job.category(), job.type(), job.location(), job.deadline(), job.tags());
     }
 }

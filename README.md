@@ -25,7 +25,7 @@ npm run dev
 - MySQL: localhost:3307 (`careerpick` / `careerpick`)
 - Redis: localhost:6379
 
-데모 로그인 계정은 `demo@careerpick.kr` / `career1234`입니다. 공고별 커뮤니티 메시지 작성은 로그인이 필요합니다.
+데모 로그인 계정은 `demo@careerpick.kr` / `career1234`입니다. 기업별 커뮤니티 참여와 조회는 로그인이 필요합니다.
 
 ## 테스트
 

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { getJobs, getMe, login } from '../shared/api/careerpickApi.js'
+import { getJobs, getMe, joinCommunity, login } from '../shared/api/careerpickApi.js'
 import { filterSampleJobs, sampleJobs } from '../features/jobs/sampleJobs.js'
 import LoginModal from '../features/auth/LoginModal.jsx'
 import { createSessionRequestScope } from '../features/auth/sessionRequestScope.js'
@@ -9,13 +9,25 @@ import CoverLetterStartPage from '../pages/CoverLetterStartPage.jsx'
 import CoverLetterPage from '../pages/CoverLetterPage.jsx'
 import CoverLetterListPage from '../pages/CoverLetterListPage.jsx'
 import JobsPage from '../pages/JobsPage.jsx'
+import CommunityPage from '../pages/CommunityPage.jsx'
+
+
+const OPEN_COMMUNITY = 'OPEN_COMMUNITY'
+const JOIN_JOB_COMMUNITY = 'JOIN_JOB_COMMUNITY'
 
 export default function App() {
-  const [page, setPage] = useState('jobs'), [targetJob, setTargetJob] = useState(null), [selectedJob, setSelectedJob] = useState(null), [chatJob, setChatJob] = useState(null)
+  const [page, setPage] = useState('jobs'), [targetJob, setTargetJob] = useState(null), [selectedJob, setSelectedJob] = useState(null)
   const [query, setQuery] = useState(''), [search, setSearch] = useState(''), [category, setCategory] = useState('전체'), [jobs, setJobs] = useState(sampleJobs)
   const [notice, setNotice] = useState(''), [apiOnline, setApiOnline] = useState(true)
   const [selectedCoverLetterId, setSelectedCoverLetterId] = useState(null)
   const [token, setToken] = useState(() => localStorage.getItem('careerpick-token') || ''), [user, setUser] = useState(null), [loginOpen, setLoginOpen] = useState(false)
+  const [selectedRoomId, setSelectedRoomId] = useState(null)
+  const loginIntent = useRef(null)
+
+  const showNotice = text => {
+    setNotice(text)
+    window.setTimeout(() => setNotice(''), 2200)
+  }
 
   useEffect(() => {
     getJobs(search, category)
@@ -93,9 +105,19 @@ export default function App() {
 
   useEffect(() => () => loginRequest.current.cancel(), [])
 
-  const showNotice = text => {
-    setNotice(text)
-    window.setTimeout(() => setNotice(''), 2200)
+  const openLogin = intent => {
+    loginIntent.current = intent
+    setLoginOpen(true)
+  }
+  const closeLogin = () => {
+    setLoginOpen(false)
+    loginIntent.current = null
+  }
+  const joinAndOpen = async (jobId, sessionToken) => {
+    const result = await joinCommunity(jobId, sessionToken)
+    setSelectedRoomId(result.room.id)
+    setPage('community')
+    window.scrollTo({top: 0, behavior: 'smooth'})
   }
   const signIn = async (email, password) => {
     const request = loginRequest.current.start()
@@ -114,6 +136,19 @@ export default function App() {
     setTargetJob(resumeJob)
     setPage(current => recovery ? 'cover-detail' : resumeJob ? 'cover-start' : current.startsWith('cover') ? 'cover-list' : current)
     showNotice(`${result.user.name}님, 반가워요!`)
+    const intent = loginIntent.current
+    if (intent?.type === OPEN_COMMUNITY) {
+      setSelectedRoomId(null)
+      setPage('community')
+    }
+    if (intent?.type === JOIN_JOB_COMMUNITY) {
+      try {
+        await joinAndOpen(intent.jobId, result.token)
+      } catch {
+        showNotice('커뮤니티에 참여하지 못했습니다. 다시 시도해 주세요.')
+      }
+    }
+    loginIntent.current = null
   }
   const closeLogin = () => {
     loginRequest.current.cancel()
@@ -128,9 +163,20 @@ export default function App() {
     if (!canLeaveCover()) return
     loginRequest.current.cancel()
     clearSession()
+    setSelectedRoomId(null)
     setLoginOpen(false)
+    if (page === 'community') setPage('jobs')
     showNotice('로그아웃했습니다')
   }
+
+  const sessionExpired = () => {
+    loginIntent.current = {type: OPEN_COMMUNITY}
+    setSelectedRoomId(null)
+    expireSession(tokenRef.current)
+    setPage('jobs')
+    showNotice('로그인이 만료되었습니다. 다시 로그인해 주세요.')
+  }
+  
   const openCoverList = () => {
     if (!canLeaveCover()) return
     coverStartJob.current = null
@@ -178,12 +224,30 @@ export default function App() {
   const openCommunity = job => {
     if (!canLeaveCover()) return
     setSelectedJob(null)
-    setChatJob(job)
+    if (!token) {
+      openLogin({type: JOIN_JOB_COMMUNITY, jobId: job.id})
+      return
+    }
+    try {
+      await joinAndOpen(job.id, token)
+    } catch (requestError) {
+      if (requestError.status === 401) sessionExpired()
+      else showNotice('커뮤니티에 참여하지 못했습니다. 다시 시도해 주세요.')
+    }
+  }
+  const openCommunityHome = () => {
+    if (!token) {
+      openLogin({type: OPEN_COMMUNITY})
+      return
+    }
+    setSelectedRoomId(null)
+    setPage('community')
+    window.scrollTo({top: 0, behavior: 'smooth'})
   }
 
   return <>
     <header className="topbar">
-      <button className="brand brand-button" onClick={openJobs}>
+      <button className="brand brand-button" onClick={() => setPage('jobs')}>
         <span>career</span>
         <b>pick</b>
         <i>●</i>
@@ -191,17 +255,21 @@ export default function App() {
       <nav>
         <button className={page === 'jobs' ? 'active' : ''} onClick={openJobs}>채용공고</button>
         <button className={page.startsWith('cover') ? 'active' : ''} onClick={openCoverList}>자기소개서</button>
-        <button onClick={() => {if (openJobs()) setTimeout(() => document.querySelector('.community')?.scrollIntoView({behavior:'smooth'}), 0)}}>커뮤니티</button>
+        <button className={page === 'community' ? 'active' : ''} onClick={openCommunityHome}>커뮤니티</button>
       </nav>
       <div className="header-actions">
-        <button className="login-button" onClick={user ? signOut : () => setLoginOpen(true)}>
-          {user ? `${user.name} · 로그아웃` : '로그인'}
+        <button className="login-button" disabled={Boolean(token && !user)} onClick={token ? signOut : () => openLogin(null)}>
+          {user ? `${user.name} · 로그아웃` : token ? '로그인 확인 중…' : '로그인'}
         </button>
       </div>
     </header>
     {!apiOnline && <div className="api-banner">백엔드 연결 전 · 일부 기능은 데모 모드로 표시됩니다</div>}
     {page === 'jobs'
       ? <JobsPage jobs={jobs} query={query} search={search} category={category} onQuery={setQuery} onSearch={setSearch} onCategory={setCategory} onOpen={setSelectedJob}/>
+      : page === 'jobs'
+        ? (
+                <JobsPage jobs={jobs} query={query} search={search} category={category} onQuery={setQuery} onSearch={setSearch} onCategory={setCategory} onOpen={setSelectedJob}/>
+      )
       : page === 'cover-list'
         ? (
           <CoverLetterListPage
@@ -257,6 +325,8 @@ export default function App() {
       <div>
         <button onClick={openJobs}>채용공고</button>
         <button onClick={openCoverList}>자기소개서</button>
+        <button onClick={openCommunityHome}>커뮤니티</button>
+
       </div>
       <small>© 2026 Careerpick. MVP demonstration.</small>
     </footer>
