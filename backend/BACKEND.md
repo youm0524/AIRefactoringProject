@@ -61,10 +61,13 @@ com.careerpick
 │   └── UserView.java
 ├── entity
 │   ├── ChatMessageEntity.java
+│   ├── CoverLetter.java
+│   ├── CoverLetterItem.java
 │   ├── Job.java
 │   └── User.java
 ├── repository
 │   ├── ChatMessageRepository.java
+│   ├── CoverLetterRepository.java
 │   ├── JobRepository.java
 │   └── UserRepository.java
 └── service
@@ -103,6 +106,14 @@ MySQL에는 다음 테이블을 저장한다.
 - `jobs`: 채용공고
 - `job_tags`: 공고별 태그
 - `chat_messages`: 공고별 채팅 메시지
+- `cover_letters`: 사용자·공고별 자기소개서 초안 1개와 생성·수정 시각
+- `cover_letter_items`: 초안 생성 당시 질문, 문항 순서·글자 제한과 답변
+
+자기소개서 생성·목록·상세·저장·삭제 API와 프론트엔드 화면 연결을 제공한다.
+최초 생성 시 지원 동기(`motivation`)·직무 경험(`experience`) 질문과 각각 700자 제한을 초안에 복사한다. 이후 원본 문항이 바뀌더라도 기존 초안의 질문을 유지하기 위한 구조다. 기업별 원본 문항 관리 기능은 아직 제공하지 않는다. 기업명·공고명은 연결된 공고의 현재 값을 사용한다.
+`CoverLetter.updateAnswers`는 모든 문항을 검증한 뒤 답변과 부모 수정 시각을 갱신한다.
+동일 사용자·공고, 초안 내 문항 키·순서는 UNIQUE로 보호한다. 사용자·공고 삭제는 초안이 있으면 제한하고, 초안 삭제 시 문항은 함께 삭제한다.
+목록은 공고 관계만 가져와 페이지 조회하고, 상세 조회는 문항을 함께 가져온다. DTO 변환은 서비스 트랜잭션 안에서 수행한다.
 
 Redis에는 `auth:session:{token}` 형식으로 사용자 ID를 저장하며 TTL은 24시간이다.
 
@@ -112,10 +123,11 @@ Hibernate는 `ddl-auto=validate`로 매핑만 검증한다. 테이블 생성과 
 
 ```text
 src/main/resources/db/migration/
-└── V1__create_core_tables.sql
+├── V1__create_core_tables.sql
+└── V2__create_cover_letter_tables.sql
 ```
 
-적용된 마이그레이션 파일은 수정하지 않는다. 변경이 필요하면 `V2__설명.sql`, `V3__설명.sql`처럼 새 파일을 추가한다.
+적용된 마이그레이션 파일은 수정하지 않는다. 다음 변경은 `V3__설명.sql`처럼 새 파일로 추가한다.
 
 ## 8. 로컬 실행과 검증
 
@@ -144,3 +156,58 @@ Swagger UI의 `Authorize`에는 로그인 응답의 token 값만 입력한다. �
 ```
 
 새로운 서비스 로직에는 단위 테스트를 추가하고, DB 매핑이나 마이그레이션 변경에는 실제 MySQL을 사용하는 통합 테스트를 추가한다.
+
+### 자기소개서 MySQL 통합 테스트
+
+개발 DB와 분리된 MySQL 8.4 DB를 준비한다. 접속 계정은 해당 테스트 DB에 DDL·DML 권한이 있어야 한다.
+아래 환경변수는 테스트 실행 셸에 설정한다. 값은 로컬 테스트 환경에 맞춘다.
+
+```bash
+export TEST_DB_URL='jdbc:mysql://127.0.0.1:3308/careerpick_test?serverTimezone=UTC&characterEncoding=UTF-8'
+export TEST_DB_USERNAME='root'
+export TEST_DB_PASSWORD='로컬 테스트 DB 비밀번호'
+export TEST_MIGRATION_DB_URL='jdbc:mysql://127.0.0.1:3308/careerpick_migration_test?serverTimezone=UTC&characterEncoding=UTF-8'
+./gradlew test --rerun-tasks
+```
+
+- `TEST_DB_URL`이 있으면 `CoverLetterRepositoryTest`가 `test` 프로필로 실행된다. Flyway와 Hibernate 매핑 검증을 활성화하며, 테스트 데이터는 각 테스트 종료 시 롤백한다.
+- `TEST_MIGRATION_DB_URL`은 매 실행마다 별도의 **빈 DB**를 지정한다. V1 적용 → 기존 사용자 추가 → V2 적용 → 데이터 보존·재적용 검증을 수행하며 DB를 자동 초기화하지 않는다.
+- 환경변수가 없으면 각 DB 테스트가 건너뛰어진다. 기본 `./gradlew test` 성공만으로 MySQL 검증 완료로 판단하지 않는다.
+- 두 DB 모두 개발·운영 DB를 지정하지 않는다. Gradle의 테스트 캐시를 피하려면 위처럼 `--rerun-tasks`를 사용한다.
+
+### 자기소개서 생성·목록 API
+
+| 메서드·경로 | 동작 |
+| --- | --- |
+| `POST /api/cover-letters` | `{ "jobId": 1 }`로 신규 생성(`201`, 상세·Location) 또는 기존 초안 반환(`200`, 상세) |
+| `GET /api/cover-letters?page=0&size=20` | 본인 초안 페이지(`items`, `page`, `size`, `totalElements`) |
+
+두 API는 Bearer 인증이 필요하며 OpenAPI에 `bearerAuth`를 표시한다. POST는 기존 초안의 답변·시각을 변경하지 않는다.
+목록 항목은 `id`, `jobId`, `company`, `jobTitle`, `updatedAt`이고 답변 본문은 제외한다. `page >= 0`, `1 <= size <= 100`, 정렬은 `updatedAt DESC, id DESC`다.
+생성 응답에는 `createdAt`과 질문·답변·문항 순서·제한을 담은 `items`도 포함한다.
+오류는 `{code, message}`이며 `400 INVALID_REQUEST`, `401 AUTHENTICATION_REQUIRED`, `404 JOB_NOT_FOUND`, `500 INTERNAL_ERROR`를 사용한다. 잘못된 JSON·쿼리 타입도 `400`으로 처리한다.
+로그인과 `/api/auth/me`의 사용자 응답에는 기존 `name`, `email`에 `id`를 추가했다.
+
+`CoverLetterService`는 인증·공고 확인에 기존 서비스를 사용한다. 생성 트랜잭션이 커밋된 뒤 결과를 반환하며, 사용자·공고 UNIQUE 충돌만 롤백 후 새 읽기 트랜잭션에서 재조회한다. 다른 DB 오류는 성공으로 바꾸지 않는다.
+`CoverLetterServiceIntegrationTest`는 `TEST_DB_URL`이 있으면 실제 MySQL에서 동시 요청과 사용자별 목록을 검증한다. 생성 데이터는 테스트 종료 시 해당 사용자·공고 범위에서 정리한다.
+
+### 자기소개서 상세·저장·삭제 API
+
+모두 Bearer 인증이 필요하다. `coverLetterId`는 초안 ID다.
+
+| 메서드·경로 | 요청·응답 |
+| --- | --- |
+| `GET /api/cover-letters/{coverLetterId}` | `200` + 생성 API와 같은 상세 DTO |
+| `PUT /api/cover-letters/{coverLetterId}` | `{ "items": [{ "id": 100, "answer": "답변" }, { "id": 101, "answer": "" }] }` → `200` + 저장된 상세 |
+| `DELETE /api/cover-letters/{coverLetterId}` | 본문 없음 → `204`, 응답 본문 없음 |
+
+문항 ID는 상세 응답의 값을 사용한다. 저장은 모든 문항을 보내며 중복·누락·타 초안 문항·NULL·길이 초과를 `400`으로 거절한다.
+공백과 빈 답변은 보존하고 Java UTF-16 길이 기준으로 제한을 검사한다. 실패 시 답변·수정 시각은 유지한다.
+쓰기 작업은 부모 행을 잠근 뒤 답변을 읽고 처리해 동시 저장 시 문항이 섞이지 않게 한다. 충돌 버전 검사는 제공하지 않는다.
+없는 초안·타인 초안은 모두 `404 COVER_LETTER_NOT_FOUND`이며, 기존 공고 없음은 `404 JOB_NOT_FOUND`를 유지한다.
+삭제 후 문항도 제거되며 동일 공고에 다시 작성하면 새 ID의 빈 초안을 생성한다.
+
+Swagger 테스트 순서: 로그인 → Authorize(token 값만 입력) → 공고 목록에서 jobId 확인 → POST 생성 → 응답 id로 GET 상세 → 문항 id로 PUT 저장 → GET 재조회 → DELETE → GET의 404 확인.
+Postman에서는 Authorization의 Bearer Token에 같은 토큰을 입력하고 JSON 요청에 `Content-Type: application/json`을 사용한다.
+
+완료 시점의 테스트·실제 API 검증 결과와 후속 작업은 [Issue #7 요약](../docs/issues/Issue-%237-Feature.md)에 기록한다.
