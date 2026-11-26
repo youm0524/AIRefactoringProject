@@ -10,9 +10,6 @@ import java.time.Instant;
 public class ChatMessageEntity {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "source_job_id")
-    private Job sourceJob;
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "room_id", nullable = false)
     private CommunityRoom room;
@@ -26,10 +23,14 @@ public class ChatMessageEntity {
 
     protected ChatMessageEntity() {}
 
-    public ChatMessageEntity(CommunityRoom room, Job sourceJob, User user, String author, String text) {
+    public ChatMessageEntity(CommunityRoom room, User user, String author, String text) {
+        this(room, user, null, author, text);
+    }
+
+    public ChatMessageEntity(CommunityRoom room, User user, String clientMessageId, String author, String text) {
         this.room = room;
-        this.sourceJob = sourceJob;
         this.user = user;
+        this.clientMessageId = clientMessageId;
         this.author = author;
         this.text = text;
         this.createdAt = Instant.now();

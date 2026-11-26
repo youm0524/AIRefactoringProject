@@ -11,6 +11,8 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 import java.time.Duration;
+import java.time.Instant;
+import java.util.concurrent.TimeUnit;
 import java.util.UUID;
 
 @Service
@@ -43,7 +45,22 @@ public class AuthService {
 
     public User requireUserEntity(String authorization) {
         if (authorization == null || !authorization.startsWith("Bearer ")) throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "로그인이 필요합니다.");
-        String userId = redis.opsForValue().get(SESSION_PREFIX + authorization.substring(7));
+        return requireUserByToken(authorization.substring(7));
+    }
+
+    public AuthenticatedSession requireWebSocketSession(String token) {
+        if (token == null || token.isBlank()) throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "로그인이 필요합니다.");
+        String key = SESSION_PREFIX + token;
+        User user = requireUserByToken(token);
+        Long ttlMillis = redis.getExpire(key, TimeUnit.MILLISECONDS);
+        if (ttlMillis == null || ttlMillis <= 0) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "로그인이 만료되었습니다.");
+        }
+        return new AuthenticatedSession(user.id(), user.name(), token, Instant.now().plusMillis(ttlMillis));
+    }
+
+    private User requireUserByToken(String token) {
+        String userId = redis.opsForValue().get(SESSION_PREFIX + token);
         if (userId == null) throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "로그인이 만료되었습니다.");
         try {
             return users.findById(Long.parseLong(userId))
@@ -54,4 +71,6 @@ public class AuthService {
     }
 
     private UserView toView(User user) { return new UserView(user.id(), user.name(), user.email()); }
+
+    public record AuthenticatedSession(long userId, String userName, String token, Instant expiresAt) {}
 }

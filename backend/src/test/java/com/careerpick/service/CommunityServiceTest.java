@@ -146,7 +146,7 @@ class CommunityServiceTest {
     }
 
     private ChatMessageEntity message(long id, CommunityRoom room, User author, String text, String createdAt) {
-        ChatMessageEntity message = new ChatMessageEntity(room, null, author, author == null ? "익명" : author.name(), text);
+        ChatMessageEntity message = new ChatMessageEntity(room, author, author == null ? "익명" : author.name(), text);
         ReflectionTestUtils.setField(message, "id", id);
         ReflectionTestUtils.setField(message, "createdAt", Instant.parse(createdAt));
         return message;

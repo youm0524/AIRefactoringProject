@@ -17,6 +17,7 @@
 | Build | esbuild | 0.25.12 |
 | Styling | CSS | 단일 `App.css` |
 | HTTP | Browser Fetch API | 별도 HTTP 라이브러리 없음 |
+| Realtime | Browser WebSocket API | 단순 JSON 프로토콜 |
 | State | React `useState`, `useEffect` | 별도 전역 상태 라이브러리 없음 |
 | Browser storage | `localStorage` | 로그인 토큰, 이전 로컬 초안 원본 보존 |
 | Test | Node.js `node:test` | `node:assert` 사용 |
@@ -31,8 +32,7 @@
 - 채용공고 검색, 분야 필터와 상세 화면 표현
 - 로그인 입력과 로그인 상태 표시
 - 기업별 지원자 커뮤니티의 참여·목록·메시지 조회·나가기 UI
-- 자기소개서 작성과 브라우저 임시 저장
-- 공고별 지원자 채팅 UI
+- 참여 중인 커뮤니티의 메시지 전송과 실시간 수신
 - 서버 자기소개서 목록·페이지 조회와 확인 후 삭제
 - 공고에서 서버 자기소개서 생성·기존 초안 열기, 상세 조회·답변 편집·저장
 - 미저장 이탈 확인과 같은 사용자 재로그인 시 편집값 복구
@@ -66,25 +66,22 @@ frontend/
 │   │   └── App.css
 │   ├── pages/
 │   │   ├── CommunityPage.jsx
-│   │   ├── CoverLetterPage.jsx
-│   │   └── JobsPage.jsx
-│   ├── features/
-│   │   ├── auth/LoginModal.jsx
-│   │   ├── CoverLetterStartPage.jsx
 │   │   ├── CoverLetterListPage.jsx
 │   │   ├── CoverLetterPage.jsx
+│   │   ├── CoverLetterStartPage.jsx
 │   │   └── JobsPage.jsx
 │   ├── features/
 │   │   ├── auth/
 │   │   │   ├── LoginModal.jsx
 │   │   │   └── sessionRequestScope.js
+│   │   ├── community/
+│   │   │   └── communityMessages.js
 │   │   ├── coverLetters/
 │   │   │   ├── answers.js
+│   │   │   ├── deleteCoverLetterWithConfirmation.js
 │   │   │   ├── navigation.js
-│   │   │   ├── sessionRecovery.js
 │   │   │   ├── pagination.js
-│   │   │   └── deleteCoverLetterWithConfirmation.js
-│   │   ├── chat/JobChat.jsx
+│   │   │   └── sessionRecovery.js
 │   │   └── jobs/
 │   │       ├── JobCard.jsx
 │   │       ├── JobDetail.jsx
@@ -92,13 +89,14 @@ frontend/
 │   └── shared/
 │       └── api/careerpickApi.js
 └── test/
-    ├── community-api.test.js
     ├── careerpickApi.test.js
-    ├── coverLetterList.test.js
-    ├── coverLetterDeletion.test.js
-    ├── coverLetterPagination.test.js
+    ├── community-api.test.js
+    ├── community-messages.test.js
     ├── coverLetterAnswers.test.js
+    ├── coverLetterDeletion.test.js
+    ├── coverLetterList.test.js
     ├── coverLetterNavigation.test.js
+    ├── coverLetterPagination.test.js
     ├── coverLetterSessionRecovery.test.js
     ├── sessionRequestScope.test.js
     └── filter.test.js
@@ -140,6 +138,7 @@ frontend/
 | 참여 방 목록 | GET | `/api/community-rooms` |
 | 최신 메시지 조회 | GET | `/api/community-rooms/{roomId}/messages` |
 | 커뮤니티 나가기 | DELETE | `/api/community-rooms/{roomId}/membership` |
+| 커뮤니티 실시간 메시지 | WebSocket | `/ws/community` |
 | 자기소개서 목록 | GET | `/api/cover-letters?page=0&size=20` |
 | 자기소개서 삭제 | DELETE | `/api/cover-letters/{coverLetterId}` |
 | 공고별 초안 생성·기존 반환 | POST | `/api/cover-letters` |
@@ -149,6 +148,8 @@ frontend/
 - 성공하지 않은 HTTP 응답은 오류로 처리한다.
 - 공고 조회 실패 시 동일한 검색어와 분야를 샘플 데이터에도 적용한다.
 - 내 정보·자기소개서 요청이 현재 토큰의 `401`로 실패하면 인증·선택 상태를 비우고 로그인 창을 연다. 상세 편집값은 원래 사용자·초안 ID와 함께 메모리에 보관해 같은 사용자만 복구한다. 서버·네트워크 오류에서는 토큰을 유지하고 재시도한다.
+- 커뮤니티 API 실패 시 가짜 방이나 메시지로 대체하지 않는다.
+- WebSocket 연결 후 첫 프레임으로 로그인 토큰을 인증하고 서버 메시지 ID로 REST·실시간 응답 중복을 제거한다.
 - 채팅 전송 실패 시 작성 중인 입력을 임의로 제거하지 않는다.
 - API 응답 필드는 백엔드 DTO와 동일하게 유지한다.
 - 오류는 `status`, `code`, `message`를 보존하며 삭제 성공 `204`에서는 JSON 파싱을 하지 않는다.

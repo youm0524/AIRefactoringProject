@@ -14,7 +14,7 @@
 | Language | Java | 17 LTS |
 | Framework | Spring Boot | 3.5.7 |
 | Build | Gradle | 8.14.6 |
-| API | Spring MVC, Bean Validation | REST/JSON |
+| API | Spring MVC, Spring WebSocket, Bean Validation | REST/JSON, WebSocket/JSON |
 | API docs | springdoc-openapi, Swagger UI | OpenAPI 3, springdoc 2.8.17 |
 | Persistence | Spring Data JPA, Hibernate | 엔티티 매핑과 Repository |
 | Database | MySQL | 8.4 |
@@ -32,6 +32,7 @@
 - 로그인 인증과 세션 검증
 - 채용공고 조회, 검색, 분야별 필터링
 - 기업별 커뮤니티 참여·나가기, 참여 방 목록과 최신 메시지 조회
+- 커뮤니티 WebSocket 인증과 단일 서버 실시간 메시지 송수신
 - 입력 검증, 트랜잭션과 데이터 정합성
 - MySQL 영속화와 Flyway 스키마 이력 관리
 
@@ -47,7 +48,8 @@ com.careerpick
 ├── config
 │   ├── AppConfig.java
 │   ├── DataInitializer.java
-│   └── OpenApiConfig.java
+│   ├── OpenApiConfig.java
+│   └── WebSocketConfig.java
 ├── controller
 │   ├── AuthController.java
 │   ├── CommunityController.java
@@ -79,10 +81,16 @@ com.careerpick
 │   ├── CoverLetterRepository.java
 │   ├── JobRepository.java
 │   └── UserRepository.java
-└── service
+├── service
     ├── AuthService.java
+    ├── CommunityMessageService.java
     ├── CommunityService.java
     └── JobService.java
+└── websocket
+    ├── CommunityWebSocketBroadcaster.java
+    ├── CommunityWebSocketConnections.java
+    ├── CommunityWebSocketFrameFactory.java
+    └── CommunityWebSocketHandler.java
 ```
 
 테스트 패키지는 대상 클래스와 동일한 계층 구조를 따른다.
@@ -95,6 +103,7 @@ com.careerpick
 - `entity`: MySQL 영속 모델을 표현하며 DTO를 참조하지 않는다.
 - `dto`: API 요청과 응답 모델을 표현하며 엔티티를 외부에 직접 노출하지 않는다.
 - `config`: 기술 설정과 개발용 초기 데이터 구성을 담당한다.
+- `websocket`: WebSocket 프로토콜 처리, 현재 인스턴스의 연결 관리와 실시간 전달을 담당하며 DB 접근은 Service를 통한다.
 - Controller가 Repository를 직접 사용하지 않는다.
 - 한 도메인의 Service가 다른 도메인의 Repository를 직접 참조하지 않고 해당 Service를 통해 협력한다.
 - 사용하지 않는 계층이나 빈 패키지를 미리 만들지 않으며 역방향·순환 의존을 허용하지 않는다.
@@ -117,7 +126,7 @@ MySQL에는 다음 테이블을 저장한다.
 - `community_room_members`: 사용자와 기업 채팅방의 참여 관계
 - `jobs`: `company_id`로 회사를 참조하는 채용공고
 - `job_tags`: 공고별 태그
-- `chat_messages`: 기업 채팅방 메시지와 기존 출처 공고
+- `chat_messages`: 기업 채팅방 메시지
 - `cover_letters`: 사용자·공고별 자기소개서 초안 1개와 생성·수정 시각
 - `cover_letter_items`: 초안 생성 당시 질문, 문항 순서·글자 제한과 답변
 
@@ -134,20 +143,15 @@ Redis에는 `auth:session:{token}` 형식으로 사용자 ID를 저장하며 TTL
 Hibernate는 `ddl-auto=validate`로 매핑만 검증한다. 테이블 생성과 변경은 Flyway만 담당한다.
 
 ```text
-
 src/main/resources/db/migration/
 ├── V1__create_core_tables.sql
 ├── V2__create_cover_letter_tables.sql
-├── V3__create_community_rooms.sql
-├── V4__create_community_room_members.sql
-├── V5__migrate_messages_to_community_rooms.sql
-└── V6__normalize_company_relationships.sql
-
-그리고 아래 설명도 유지합니다.
+└── V3__create_company_community_schema.sql
+```
 
 회사와 커뮤니티 방은 서로 다른 ID를 사용한다. `jobs.company_id`와 `community_rooms.company_id`가 회사를 참조하며, 공고 응답의 `companyId`·회사명·로고·색상은 연결된 회사에서 가져온다. 커뮤니티 참여·목록 응답은 방 `id`와 `companyId`를 별도로 제공한다.
 
-적용된 마이그레이션 파일은 수정하지 않는다. 다음 변경은 `V7__설명.sql`처럼 새 파일로 추가한다.
+적용된 마이그레이션 파일은 수정하지 않는다. 다음 변경은 `V4__설명.sql`처럼 새 파일로 추가한다.
 
 ## 8. 로컬 실행과 검증
 
@@ -168,6 +172,8 @@ OpenAPI 명세와 Swagger UI는 백엔드 실행 후 다음 주소에서 확인�
 - OpenAPI YAML: `http://localhost:8080/v3/api-docs.yaml`
 
 Swagger UI의 `Authorize`에는 로그인 응답의 token 값만 입력한다. 배포 환경에서 문서를 공개하지 않으려면 `OPENAPI_ENABLED=false`를 설정한다.
+
+커뮤니티 실시간 연결은 `ws://localhost:8080/ws/community`를 사용한다. WebSocket은 OpenAPI 대상이 아니므로 Swagger UI에는 표시되지 않는다. 연결 후 5초 안에 `AUTH` 프레임을 보내고, 인증 뒤 `SEND_MESSAGE` 프레임을 전송한다. 전체 JSON 계약은 [커뮤니티 기술 설계](../docs/design.md#7-websocket-계약)를 따른다. T-06 전까지 실시간 전달 범위는 같은 백엔드 인스턴스에 연결된 사용자다.
 
 테스트는 다음 명령으로 실행한다.
 

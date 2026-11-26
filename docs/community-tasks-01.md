@@ -50,12 +50,12 @@
 
 - Backend: `CommunityRoom`, `Job`, `DataInitializer`, 관련 Repository와 테스트
 - Frontend: 없음
-- Database: `community_rooms`, `jobs.community_room_id`
+- Database: `companies`, `community_rooms`, `jobs.company_id`
 - 기타: `BACKEND.md`
 
 **완료 조건 (Acceptance Criteria)**
 
-- [x] 기존 공고마다 `community_room_id`가 채워진다.
+- [x] 기존 공고마다 `company_id`가 채워지고 회사별 방이 하나 생성된다.
 - [x] 기업명이 정확히 같은 공고는 같은 방을 참조한다.
 - [x] 기업명이 다른 공고는 자동 병합되지 않는다.
 - [x] 빈 DB 초기 데이터 생성과 기존 공고 마이그레이션을 모두 지원한다.
@@ -64,13 +64,13 @@
 **검증 방법**
 
 - [x] `cd backend && ./gradlew test`
-- [x] 실제 MySQL에서 Flyway V1 → V2 적용 및 Hibernate 매핑 검증
+- [x] 실제 MySQL에서 Flyway V1 → V3 적용 및 Hibernate 매핑 검증
 - [x] 마이그레이션 후 공고 수, 방 수와 누락된 방 참조 확인
 
 **실행 결과**
 
-- 변경 내용: 기업 방 엔티티·Repository, V2 마이그레이션, 공고의 필수 방 관계, 빈 DB 초기화와 관련 문서를 추가했다.
-- 검증 결과: 백엔드 테스트 5개 통과. 기존 DB V1→V2와 Hibernate 검증 성공. 동일 `SameCo` 2건은 방 1개를 공유하고 `sameco`는 별도 방으로 유지됐다. 빈 DB에서 공고 9개, 방 9개, 메시지 18개가 생성됐고 누락·오연결은 0건이었다.
+- 변경 내용: 기업 방 엔티티·Repository, V3 마이그레이션, 공고의 필수 방 관계, 빈 DB 초기화와 관련 문서를 추가했다.
+- 검증 결과: 백엔드 테스트 5개 통과. 기존 DB V1→V3와 Hibernate 검증 성공. 동일 `SameCo` 2건은 방 1개를 공유하고 `sameco`는 별도 방으로 유지됐다. 빈 DB에서 공고 9개, 방 9개, 메시지 18개가 생성됐고 누락·오연결은 0건이었다.
 - 남은 문제: Flyway가 MySQL 8.4를 공식 검증한 최신 범위보다 새 버전이라는 경고가 있으나 마이그레이션은 성공했다.
 
 ---

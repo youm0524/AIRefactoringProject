@@ -3,14 +3,12 @@ import { getJobs, getMe, joinCommunity, login } from '../shared/api/careerpickAp
 import { filterSampleJobs, sampleJobs } from '../features/jobs/sampleJobs.js'
 import LoginModal from '../features/auth/LoginModal.jsx'
 import { createSessionRequestScope } from '../features/auth/sessionRequestScope.js'
-import JobChat from '../features/chat/JobChat.jsx'
 import JobDetail from '../features/jobs/JobDetail.jsx'
 import CoverLetterStartPage from '../pages/CoverLetterStartPage.jsx'
 import CoverLetterPage from '../pages/CoverLetterPage.jsx'
 import CoverLetterListPage from '../pages/CoverLetterListPage.jsx'
 import JobsPage from '../pages/JobsPage.jsx'
 import CommunityPage from '../pages/CommunityPage.jsx'
-
 
 const OPEN_COMMUNITY = 'OPEN_COMMUNITY'
 const JOIN_JOB_COMMUNITY = 'JOIN_JOB_COMMUNITY'
@@ -109,10 +107,6 @@ export default function App() {
     loginIntent.current = intent
     setLoginOpen(true)
   }
-  const closeLogin = () => {
-    setLoginOpen(false)
-    loginIntent.current = null
-  }
   const joinAndOpen = async (jobId, sessionToken) => {
     const result = await joinCommunity(jobId, sessionToken)
     setSelectedRoomId(result.room.id)
@@ -153,6 +147,7 @@ export default function App() {
   const closeLogin = () => {
     loginRequest.current.cancel()
     setLoginOpen(false)
+    loginIntent.current = null
     if (coverStartJob.current) {
       coverStartJob.current = null
       setTargetJob(null)
@@ -176,7 +171,7 @@ export default function App() {
     setPage('jobs')
     showNotice('로그인이 만료되었습니다. 다시 로그인해 주세요.')
   }
-  
+
   const openCoverList = () => {
     if (!canLeaveCover()) return
     coverStartJob.current = null
@@ -221,7 +216,7 @@ export default function App() {
     setPage('jobs')
     return true
   }
-  const openCommunity = job => {
+  const openCommunity = async job => {
     if (!canLeaveCover()) return
     setSelectedJob(null)
     if (!token) {
@@ -247,7 +242,7 @@ export default function App() {
 
   return <>
     <header className="topbar">
-      <button className="brand brand-button" onClick={() => setPage('jobs')}>
+      <button className="brand brand-button" onClick={openJobs}>
         <span>career</span>
         <b>pick</b>
         <i>●</i>
@@ -266,55 +261,53 @@ export default function App() {
     {!apiOnline && <div className="api-banner">백엔드 연결 전 · 일부 기능은 데모 모드로 표시됩니다</div>}
     {page === 'jobs'
       ? <JobsPage jobs={jobs} query={query} search={search} category={category} onQuery={setQuery} onSearch={setSearch} onCategory={setCategory} onOpen={setSelectedJob}/>
-      : page === 'jobs'
-        ? (
-                <JobsPage jobs={jobs} query={query} search={search} category={category} onQuery={setQuery} onSearch={setSearch} onCategory={setCategory} onOpen={setSelectedJob}/>
-      )
-      : page === 'cover-list'
-        ? (
-          <CoverLetterListPage
-            key={`${token}:${user?.id || 'pending'}`}
-            token={token}
-            user={user}
-            sessionError={sessionError?.token === token ? sessionError.error : null}
-            onRetrySession={() => {setSessionError(null); setSessionAttempt(current => current + 1)}}
-            onSessionExpired={expireSession}
-            onOpen={openCoverDetail}
-            onRequireLogin={() => setLoginOpen(true)}
-            onFindJobs={openJobs}
-          />
-        )
-        : page === 'cover-detail'
+      : page === 'community'
+        ? <CommunityPage token={token} selectedRoomId={selectedRoomId} onSelectRoom={setSelectedRoomId} onSessionExpired={sessionExpired} onNotice={showNotice}/>
+        : page === 'cover-list'
           ? (
-            <CoverLetterPage
-              key={`${selectedCoverLetterId}:${token}:${user?.id || 'pending'}`}
-              coverLetterId={selectedCoverLetterId}
+            <CoverLetterListPage
+              key={`${token}:${user?.id || 'pending'}`}
               token={token}
               user={user}
               sessionError={sessionError?.token === token ? sessionError.error : null}
               onRetrySession={() => {setSessionError(null); setSessionAttempt(current => current + 1)}}
               onSessionExpired={expireSession}
+              onOpen={openCoverDetail}
               onRequireLogin={() => setLoginOpen(true)}
-              onBack={openCoverList}
-              onRegisterLeaveGuard={registerCoverLeaveGuard}
-              onRegisterSnapshot={registerCoverSnapshot}
-              recovery={coverRecovery.current}
+              onFindJobs={openJobs}
             />
           )
-          : targetJob && (
-            <CoverLetterStartPage
-              key={`${targetJob.id}:${token}:${user?.id || 'pending'}`}
-              job={targetJob}
-              token={token}
-              user={user}
-              sessionError={sessionError?.token === token ? sessionError.error : null}
-              onRetrySession={() => {setSessionError(null); setSessionAttempt(current => current + 1)}}
-              onRequireLogin={() => setLoginOpen(true)}
-              onSessionExpired={expireSession}
-              onCreated={coverCreated}
-              onBack={openCoverList}
-            />
-          )}
+          : page === 'cover-detail'
+            ? (
+              <CoverLetterPage
+                key={`${selectedCoverLetterId}:${token}:${user?.id || 'pending'}`}
+                coverLetterId={selectedCoverLetterId}
+                token={token}
+                user={user}
+                sessionError={sessionError?.token === token ? sessionError.error : null}
+                onRetrySession={() => {setSessionError(null); setSessionAttempt(current => current + 1)}}
+                onSessionExpired={expireSession}
+                onRequireLogin={() => setLoginOpen(true)}
+                onBack={openCoverList}
+                onRegisterLeaveGuard={registerCoverLeaveGuard}
+                onRegisterSnapshot={registerCoverSnapshot}
+                recovery={coverRecovery.current}
+              />
+            )
+            : targetJob && (
+              <CoverLetterStartPage
+                key={`${targetJob.id}:${token}:${user?.id || 'pending'}`}
+                job={targetJob}
+                token={token}
+                user={user}
+                sessionError={sessionError?.token === token ? sessionError.error : null}
+                onRetrySession={() => {setSessionError(null); setSessionAttempt(current => current + 1)}}
+                onRequireLogin={() => setLoginOpen(true)}
+                onSessionExpired={expireSession}
+                onCreated={coverCreated}
+                onBack={openCoverList}
+              />
+            )}
     <footer>
       <a className="brand small" href="#top">
         <span>career</span>
@@ -326,12 +319,10 @@ export default function App() {
         <button onClick={openJobs}>채용공고</button>
         <button onClick={openCoverList}>자기소개서</button>
         <button onClick={openCommunityHome}>커뮤니티</button>
-
       </div>
       <small>© 2026 Careerpick. MVP demonstration.</small>
     </footer>
     <JobDetail job={selectedJob} onClose={() => setSelectedJob(null)} onWrite={openCover} onCommunity={openCommunity}/>
-    <JobChat job={chatJob} user={user} token={token} onClose={() => setChatJob(null)} onRequireLogin={() => setLoginOpen(true)} onConnectionChange={setApiOnline}/>
     <LoginModal key={loginOpen ? 'open' : 'closed'} open={loginOpen} onClose={closeLogin} onLogin={signIn} onSuccess={() => {loginRequest.current.cancel(); setLoginOpen(false)}}/>
     <div className={`toast ${notice ? 'show' : ''}`} role="status">
       {notice}

@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 public interface CommunityRoomMemberRepository extends JpaRepository<CommunityRoomMember, Long> {
     @Modifying
@@ -25,4 +26,8 @@ public interface CommunityRoomMemberRepository extends JpaRepository<CommunityRo
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT member FROM CommunityRoomMember member WHERE member.user.id = :userId AND member.room.id = :roomId")
     Optional<CommunityRoomMember> findForUpdate(@Param("userId") long userId, @Param("roomId") long roomId);
+
+    @Query("SELECT member.user.id FROM CommunityRoomMember member WHERE member.room.id = :roomId AND member.user.id IN :userIds")
+    Set<Long> findUserIdsByRoomIdAndUserIdIn(@Param("roomId") long roomId,
+                                              @Param("userIds") Set<Long> userIds);
 }
